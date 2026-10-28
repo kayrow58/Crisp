@@ -1,0 +1,50 @@
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--safe-top) + var(--s3)) calc(var(--edge) + var(--safe-right))
+    calc(var(--tabbar-h) + var(--safe-bottom) + var(--s5)) calc(var(--edge) + var(--safe-left));
+  animation: fade-in 160ms ease;
+}
+
+.screen-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--s4);
+}
+
+.large-title {
+  font-family: var(--font-rounded);
+  font-size: var(--t-large-title);
+  font-weight: 700;
+  margin: 0;
+}
+
+.streak {
+  font-family: var(--font-rounded);
+  font-size: var(--t-title);
+  font-weight: 700;
+}
+
+.placeholder {
+  color: var(--text-2);
+  font-size: var(--t-subhead);
+  text-align: center;
+  margin-top: var(--s6);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
