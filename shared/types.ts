@@ -52,9 +52,20 @@ export interface Profile {
   extraMeals?: ExtraMeal[]
 }
 
+/** A store-brand product from USDA Branded Foods ('b:fdc:<id>') or Open Food Facts ('b:off:<barcode>'). */
+export interface BrandFood {
+  id: string
+  name: string
+  brand: string
+  /** per 100 g / 100 ml */
+  per100: { cal: number; p: number; c: number; f: number }
+  units: { label: string; grams: number }[]
+  upc?: string
+}
+
 export interface FoodEntry {
   id: string
-  /** 'u:<ndb>' library food · 'c:<id>' custom food · 'q' quick add */
+  /** 'u:<ndb>' library food · 'c:<id>' custom food · 'b:…' store brand · 'q' quick add */
   foodId: string
   name: string
   meal: Meal

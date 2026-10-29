@@ -8,6 +8,7 @@ import { ChipRow, MealBubble } from '../components/Pickers'
 import { macrosFor, type LibFood } from '../lib/foods'
 import { matchText, fitUnit, type ParsedItem } from '../lib/parse'
 import { addEntry } from '../lib/logging'
+import { coversQuery, hasUnknownWord, rememberBrand, searchBrands } from '../lib/brands'
 import { closeAllSheets, openSheet, toast } from '../lib/ui'
 import { fmt, r0 } from '../lib/format'
 import { mealLabel } from '../lib/meals'
@@ -22,6 +23,8 @@ interface Line {
   qty: number
   alternatives: LibFood[]
   include: boolean
+  /** looking this one up in store brands */
+  checking?: boolean
 }
 
 export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
@@ -42,9 +45,38 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
         qty: m.best?.qty ?? 1,
         alternatives: m.alternatives,
         include: !!m.best,
+        checking: !m.best || hasUnknownWord(all, m.item.query),
       })),
     )
     setOpen(null)
+    // Brand names the built-in list doesn't know ("fairlife milk", "chobani") → look them up in store brands.
+    matched.forEach((m, i) => {
+      if (!(!m.best || hasUnknownWord(all, m.item.query))) return
+      searchBrands(m.item.query).then(
+        (found) => {
+          setLines((ls) =>
+            ls
+              ? ls.map((l) => {
+                  if (l.key !== i) return l
+                  const pick = found.find((f) => coversQuery(f, l.item.query)) ?? (l.food ? undefined : found[0])
+                  if (!pick) return { ...l, checking: false, alternatives: [...found.slice(0, 3), ...l.alternatives] }
+                  const fit = fitUnit(pick, l.item)
+                  return {
+                    ...l,
+                    checking: false,
+                    food: fit.food,
+                    unitIndex: fit.unitIndex,
+                    qty: fit.qty,
+                    include: true,
+                    alternatives: [...found.filter((f) => f !== pick).slice(0, 3), ...(l.food ? [l.food] : []), ...l.alternatives].slice(0, 7),
+                  }
+                })
+              : ls,
+          )
+        },
+        () => setLines((ls) => (ls ? ls.map((l) => (l.key === i ? { ...l, checking: false } : l)) : ls)),
+      )
+    })
   }
 
   const update = (key: number, patch: Partial<Line>) => setLines((ls) => ls!.map((l) => (l.key === key ? { ...l, ...patch } : l)))
@@ -53,6 +85,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
 
   const addAll = () => {
     for (const l of chosen) {
+      rememberBrand(l.food!)
       const m = macrosFor(l.food!, l.unitIndex, l.qty)
       addEntry(date, { foodId: l.food!.id, name: l.food!.name, meal, qty: l.qty, unit: l.food!.units[l.unitIndex].label, ...m, p: m.p, c: m.c, f: m.f }, 'typed', { silent: true })
     }
@@ -127,7 +160,7 @@ function LineRow({
       <div className="typeit-row typeit-row--miss">
         <span className="row-main">
           <span className="row-label">“{item.raw}”</span>
-          <span className="row-sub">No match in the food list</span>
+          <span className="row-sub">{line.checking ? 'Checking store brands…' : 'No match in the food list'}</span>
         </span>
         <button className="link small" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} name={item.query} />)}>
           <Lightning size={14} weight="fill" aria-hidden /> Quick add
@@ -146,6 +179,7 @@ function LineRow({
         <button className="row-main typeit-main" onClick={onToggleOpen} aria-expanded={open}>
           <span className="muted small">“{item.raw}”</span>
           <span className="row-label">{food.name}</span>
+          {line.checking && <span className="muted small">Checking store brands…</span>}
           <span className="row-sub">
             {fmt(qty, 2)} × {unit.label === 'g' ? 'grams' : unit.label === 'oz' ? 'oz' : unit.label} · P {r0(m.p)} · C {r0(m.c)} · F {r0(m.f)}
           </span>

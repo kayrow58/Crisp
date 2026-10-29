@@ -1677,7 +1677,7 @@ select.input {
   font-weight: 600;
 }
 
-/* ---------- splash ---------- */
+/* ---------- splash: bars fill to draw the C, slide away bar by bar, then swipe to the app ---------- */
 .splash {
   position: fixed;
   inset: 0;
@@ -1685,11 +1685,129 @@ select.input {
   background: #000;
   display: grid;
   place-items: center;
-  animation: splash-out 650ms ease forwards;
-  pointer-events: none;
+  animation: splash-swipe 420ms cubic-bezier(0.65, 0, 0.35, 1) 2180ms forwards;
 }
-.splash img {
-  border-radius: 22px;
+.splash--skip {
+  animation: splash-fade 240ms ease forwards;
+}
+.splash-logo {
+  position: relative;
+  width: min(62vw, 260px);
+  aspect-ratio: 1;
+}
+.splash-bar {
+  position: absolute;
+  border-radius: 6.7% / 30%; /* = 20px on the 512 icon */
+  overflow: hidden;
+  transform: translateZ(0);
+  animation:
+    bar-in 220ms ease both,
+    bar-out 380ms cubic-bezier(0.55, 0, 0.75, 0) calc(1660ms + var(--i) * 110ms) forwards;
+}
+.splash-bar--cyan {
+  border-radius: 30% / 14.7%;
+}
+.splash-bar--pink {
+  --c: #ff2d95;
+}
+.splash-bar--cyan {
+  --c: #00e5ff;
+}
+.splash-bar--yellow {
+  --c: #ffd60a;
+}
+.splash-bar::before {
+  /* the empty track */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+  opacity: 0.18;
+}
+.splash-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--c);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--c) 60%, transparent);
+  animation: var(--fill-anim) var(--fill-dur) cubic-bezier(0.33, 0, 0.2, 1) var(--fill-at) both;
+}
+/* Filling follows the letter's stroke: top bar right→left, spine top→bottom, bottom bar left→right. */
+.splash-bar--pink .splash-fill {
+  --fill-anim: fill-from-right;
+  --fill-dur: 460ms;
+  --fill-at: 220ms;
+}
+.splash-bar--cyan .splash-fill {
+  --fill-anim: fill-from-top;
+  --fill-dur: 340ms;
+  --fill-at: 640ms;
+}
+.splash-bar--yellow .splash-fill {
+  --fill-anim: fill-from-left;
+  --fill-dur: 460ms;
+  --fill-at: 940ms;
+}
+.splash-logo {
+  animation: logo-glow 420ms ease 1400ms both;
+}
+@keyframes bar-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fill-from-right {
+  from {
+    transform: translateX(101%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes fill-from-left {
+  from {
+    transform: translateX(-101%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes fill-from-top {
+  from {
+    transform: translateY(-101%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes logo-glow {
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.25);
+  }
+}
+@keyframes bar-out {
+  to {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+}
+@keyframes splash-swipe {
+  to {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+}
+@keyframes splash-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    display: none;
+  }
 }
 
 /* ---------- keyframes ---------- */
@@ -1780,17 +1898,6 @@ select.input {
     opacity: 0.6;
   }
 }
-@keyframes splash-out {
-  0%,
-  45% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
 /* ---------- themed bubbles (unit + meal pickers) ---------- */
 .chip-row {
   display: flex;
@@ -1982,4 +2089,18 @@ select.input {
 .nav-actions {
   display: inline-flex;
   align-items: center;
+}
+
+/* ---------- store brands section in Log search ---------- */
+.brand-section {
+  margin-top: 16px;
+}
+.brand-section .group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cyan);
+}
+.pad-x {
+  padding: 0 4px;
 }

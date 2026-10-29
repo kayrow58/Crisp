@@ -21,6 +21,8 @@ export const stores = {
   app: () => store('app'),
   /** key: fitness code → uid */
   fitnesscodes: () => store('fitnesscodes'),
+  /** key: `q/${query}` → { at, foods: BrandFood[] } (store-brand search cache) */
+  brands: () => store('brands'),
 }
 
 export async function getProfile(uid: string): Promise<Profile | null> {

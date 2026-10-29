@@ -1,9 +1,10 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Lightning, MagnifyingGlass, Minus, NotePencil, Plus, PlusCircle, Star } from '@phosphor-icons/react'
+import { Lightning, MagnifyingGlass, Minus, NotePencil, Plus, PlusCircle, Star, Storefront } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
+import { rememberBrand, savedBrand, useBrandSearch } from '../lib/brands'
 import { addEntry, logTemplate, updateEntry, type LogMethod } from '../lib/logging'
 import { getState, setCustomFoods, track, useList, useStore } from '../lib/store'
 import { closeAllSheets, closeSheet, openSheet, toast } from '../lib/ui'
@@ -37,6 +38,7 @@ export function useLibrary() {
 }
 
 export function findFood(all: LibFood[], foodId: string) {
+  if (foodId.startsWith('b:')) return savedBrand(foodId)
   return all.find((f) => f.id === foodId)
 }
 
@@ -52,6 +54,8 @@ function LogSheet({ date, initialMeal }: { date: string; initialMeal: Meal }) {
     return () => clearTimeout(t)
   }, [])
   const results = useMemo(() => (q.trim() ? searchFoods(all, q) : []), [all, q])
+  const brands = useBrandSearch(q)
+  const brandSection = q.trim().length >= 3 && (brands.loading || brands.foods.length > 0 || brands.error)
 
   const quickRelog = (t: FoodTemplate, method: LogMethod) => {
     logTemplate(date, t, meal, method)
@@ -97,20 +101,35 @@ function LogSheet({ date, initialMeal }: { date: string; initialMeal: Meal }) {
             <Shimmer />
             <Shimmer />
           </div>
-        ) : results.length ? (
-          <ul className="list">
-            {results.map((f) => (
-              <li key={f.id}>
-                <button className="food-row pressable" onClick={() => openSheet(<PortionSheet food={f} date={date} meal={meal} method={f.custom ? 'custom' : 'search'} />)}>
-                  <span className="food-name">{f.name}</span>
-                  <span className="food-sub">
-                    {f.perServing ? `${r0(f.perServing.cal)} cal · ${f.units[0].label}` : `${r0(macrosFor(f, 0, 1).cal)} cal · ${f.units[0].label}`}
-                    {f.createdByName && <span className="by"> · added by {f.createdByName}</span>}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        ) : results.length || brandSection ? (
+          <>
+            {results.length > 0 && <FoodList foods={results} date={date} meal={meal} />}
+            {brandSection && (
+              <section className="brand-section" aria-live="polite">
+                <h3 className="group-title">
+                  <Storefront size={16} weight="duotone" aria-hidden /> Store brands
+                </h3>
+                {brands.loading && !brands.foods.length ? (
+                  <div className="stack">
+                    <Shimmer />
+                    <Shimmer />
+                  </div>
+                ) : brands.error ? (
+                  <p className="muted small pad-x">Store brands need a connection. The built-in foods above still work offline.</p>
+                ) : (
+                  <FoodList foods={brands.foods} date={date} meal={meal} />
+                )}
+              </section>
+            )}
+            {!results.length && !brands.loading && !brands.foods.length && (
+              <div className="quick-row">
+                <Button onClick={() => openSheet(<CreateFoodSheet date={date} meal={meal} name={q} />)}>＋ Create it</Button>
+                <Button kind="secondary" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} name={q} />)}>
+                  ⚡ Quick add
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="empty empty--small">
             <MagnifyingGlass size={40} className="empty-icon" aria-hidden />
@@ -132,6 +151,28 @@ function LogSheet({ date, initialMeal }: { date: string; initialMeal: Meal }) {
         </>
       )}
     </Sheet>
+  )
+}
+
+function FoodList({ foods, date, meal }: { foods: LibFood[]; date: string; meal: Meal }) {
+  return (
+    <ul className="list">
+      {foods.map((f) => (
+        <li key={f.id}>
+          <button
+            className="food-row pressable"
+            onClick={() => openSheet(<PortionSheet food={f} date={date} meal={meal} method={f.custom ? 'custom' : f.brand ? 'brand' : 'search'} />)}
+          >
+            <span className="food-name">{f.name}</span>
+            <span className="food-sub">
+              {f.perServing ? `${r0(f.perServing.cal)} cal · ${f.units[0].label}` : `${r0(macrosFor(f, 0, 1).cal)} cal · ${f.units[0].label}`}
+              {f.units[0].grams && f.brand && f.units[0].label !== 'g' ? ` (${fmt(f.units[0].grams)} g)` : ''}
+              {f.createdByName && <span className="by"> · added by {f.createdByName}</span>}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -210,6 +251,7 @@ export function PortionSheet({
   const save = () => {
     if (qty <= 0) return
     const data = { foodId: food.id, name: food.name, meal, qty, unit: food.units[unit].label, cal: m.cal, p: m.p, c: m.c, f: m.f }
+    rememberBrand(food)
     if (editing) {
       updateEntry(date, editing.id, data)
       toast('Saved')
@@ -386,6 +428,7 @@ export async function editEntry(date: string, e: FoodEntry) {
   if (e.foodId === 'q') return openSheet(<QuickAddSheet date={date} meal={e.meal} editing={e} />)
   const custom = getState().customFoods.find((c) => `c:${c.id}` === e.foodId)
   let food: LibFood | undefined = custom ? customToLib(custom) : undefined
+  if (!food && e.foodId.startsWith('b:')) food = savedBrand(e.foodId)
   if (!food && e.foodId.startsWith('u:')) {
     try {
       food = findFood(await loadLibrary(), e.foodId)

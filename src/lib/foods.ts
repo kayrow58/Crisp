@@ -1,5 +1,5 @@
 // Built-in USDA food library (public/foods.json, built by scripts/build-foods.mjs) + search.
-import type { CustomFood } from '../../shared/types'
+import type { BrandFood, CustomFood } from '../../shared/types'
 
 /** [id, name, kcal, protein, carbs, fat (all per 100 g), portions [[label, grams]], featured] */
 type Row = [string, string, number, number, number, number, [string, number][], number]
@@ -14,6 +14,8 @@ export interface LibFood {
   featured: boolean
   createdByName?: string
   custom?: CustomFood
+  /** store-brand product (USDA Branded Foods / Open Food Facts) */
+  brand?: BrandFood
 }
 
 let lib: LibFood[] | null = null

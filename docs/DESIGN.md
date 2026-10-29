@@ -128,8 +128,8 @@ System fonts only (nothing to download). Numbers and titles use SF Pro Rounded (
 
 ## App icon & launch
 
-- **Icon:** three rounded bars (pink `#FF2D95`, cyan `#00E5FF`, yellow `#FFD60A`) curving into a "C" on black. Placeholder versions ship in `public/icons/`; final artwork replaces them.
-- **Launch:** still icon on black (iOS startup image), then the C fades as Home's bars sweep in (~0.6 s).
+- **Icon:** a squared "C" built from three progress bars on black — pink top bar, cyan spine, yellow bottom bar (¾ filled, track showing). Drawn by `scripts/build-icons.mjs` (`node scripts/build-icons.mjs` regenerates `public/icons/`).
+- **Launch (~2.6 s, tap to skip):** empty tracks fade in → bars fill in stroke order (pink right→left, cyan top→bottom, yellow left→right) → glow pulse → bars slide away left one by one → the splash swipes off to the app. Reduce Motion: no splash. (`src/components/Splash.tsx`)
 - **Imagery:** empty states use one large glowing icon; milestones use neon confetti + a big number.
 
 ---

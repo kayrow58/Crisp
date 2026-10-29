@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" fill="#000000"/>
-<path d="M351.1 142.6 A148 148 0 0 0 189.6 123.7" stroke="#FF2D95" stroke-width="58" stroke-linecap="round" fill="none"/>
-<path d="M132.3 174.7 A148 148 0 0 0 132.3 337.3" stroke="#00E5FF" stroke-width="58" stroke-linecap="round" fill="none"/>
-<path d="M189.6 388.3 A148 148 0 0 0 351.1 369.4" stroke="#FFD60A" stroke-width="58" stroke-linecap="round" fill="none"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><filter id="glow0" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.55 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="glow1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.55 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="glow2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.55 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="512" height="512" fill="#000"/><g><rect x="106" y="106" width="300" height="66" rx="20" fill="#FF2D95" fill-opacity="0.18"/>
+<rect x="106" y="106" width="300" height="66" rx="20" fill="#FF2D95" filter="url(#glow0)"/>
+<rect x="106" y="188" width="66" height="136" rx="20" fill="#00E5FF" fill-opacity="0.18"/>
+<rect x="106" y="188" width="66" height="136" rx="20" fill="#00E5FF" filter="url(#glow1)"/>
+<rect x="106" y="340" width="300" height="66" rx="20" fill="#FFD60A" fill-opacity="0.18"/>
+<rect x="106" y="340" width="222" height="66" rx="20" fill="#FFD60A" filter="url(#glow2)"/></g></svg>

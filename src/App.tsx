@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import TabBar from './components/TabBar'
 import { Overlays } from './components/Overlays'
 import { Shimmer } from './components/ui'
+import { Splash } from './components/Splash'
 import { boot, today, track, useStore } from './lib/store'
 import { getPrefs } from './lib/prefs'
 import { getUi, setHomeDate, setTab, useUi } from './lib/ui'
@@ -26,14 +27,13 @@ export default function App() {
   const phase = useStore((s) => s.phase)
   const onboarded = useStore((s) => !!s.profile?.onboarded)
   const [splash, setSplash] = useState(!prefersReducedMotion())
+  const endSplash = useCallback(() => setSplash(false), [])
 
   useEffect(() => {
     if (!booted) {
       booted = true
       void boot()
     }
-    const t = setTimeout(() => setSplash(false), 650)
-    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -64,11 +64,7 @@ export default function App() {
     <>
       {body}
       <Overlays />
-      {splash && (
-        <div className="splash" aria-hidden>
-          <img src="/icons/icon-192.png" alt="" width={96} height={96} />
-        </div>
-      )}
+      {splash && <Splash onDone={endSplash} />}
     </>
   )
 }

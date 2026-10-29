@@ -259,6 +259,12 @@ export function fitUnit(food: LibFood, item: ParsedItem): Match {
   const withEach = (label: string, grams: number, qty: number): Match => ({ food: { ...food, units: [{ label, grams }, ...units] }, unitIndex: 0, qty: round(qty) })
 
   if (food.perServing) return { food, unitIndex: 0, qty: item.qty }
+  // Store brands: count in the label's serving ("2 waffles" with a "2 waffles (70 g)" serving = 1 serving).
+  if (food.brand && (!item.unit || item.unit === 'piece') && food.units[0].label !== 'g') {
+    const label = food.units[0].label.toLowerCase()
+    const same = item.explicit && item.query.split(' ').some((w) => w.length > 2 && label.includes(w.replace(/e?s$/, '')))
+    return { food, unitIndex: 0, qty: round(same ? item.qty / labelQty(label) : item.qty) }
+  }
   const g = find((l) => l === 'g')
   const oz = find((l) => l === 'oz')
   let unit = item.unit
