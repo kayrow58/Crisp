@@ -71,7 +71,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
           setText(e.target.value)
           if (lines) setLines(null)
         }}
-        placeholder={'2 eggs, a slice of toast and coffee\n6 oz chicken breast with 1 cup rice'}
+        placeholder={'2 eggs, about half an avocado, pb toast\nMonterey Jack cheese 60g, coffee w/ milk'}
         aria-label="What did you eat?"
         autoFocus
       />

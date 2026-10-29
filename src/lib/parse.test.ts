@@ -68,3 +68,21 @@ describe('fitting units', () => {
     expect(m.qty).toBe(1)
   })
 })
+
+describe('free typing (abbreviations, shorthand, phrases)', () => {
+  it('reads "Monterey Jack Cheese 60g"', () => {
+    expect(parseItem('Monterey Jack Cheese 60g')).toMatchObject({ qty: 60, unit: 'g', query: 'monterey jack cheese' })
+  })
+  it('reads "about half an avocado"', () => {
+    expect(parseItem('about half an avocado')).toMatchObject({ qty: 0.5, unit: null, query: 'avocado' })
+  })
+  it('handles ranges, x-counts, trailing numbers and w/', () => {
+    expect(parseItem('2-3 strawberries')).toMatchObject({ qty: 2.5, query: 'strawberries' })
+    expect(parseItem('eggs x3')).toMatchObject({ qty: 3, query: 'eggs' })
+    expect(parseItem('3x eggs')).toMatchObject({ qty: 3, query: 'eggs' })
+    expect(parseItem('chicken breast (6 oz)')).toMatchObject({ qty: 6, unit: 'oz', query: 'chicken breast' })
+    expect(parseItem('1.5c milk')).toMatchObject({ qty: 1.5, unit: 'cup', query: 'milk' })
+    expect(parseItem('big apple')).toMatchObject({ unit: 'large', query: 'apple' })
+    expect(splitFoods('coffee w/ milk, 2 eggs')).toEqual(['coffee with milk', '2 eggs'])
+  })
+})
