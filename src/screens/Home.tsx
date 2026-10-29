@@ -9,7 +9,8 @@ import { dayStats, useToday } from '../lib/derived'
 import { ensureDay, refresh, useDay, useDayIndex, useStore } from '../lib/store'
 import { setPref, usePrefs } from '../lib/prefs'
 import { pushScreen, setHomeDate, toast, useUi } from '../lib/ui'
-import { MEAL_LABEL, MEALS, dayLabel, fmt, r0 } from '../lib/format'
+import { dayLabel, fmt, r0 } from '../lib/format'
+import { MAX_EXTRA_MEALS, addExtraMeal, displayMeal, useMeals } from '../lib/meals'
 import { streak } from '../../shared/calc'
 import { addDays, weekday } from '../../shared/dates'
 import { openLog } from './Log'
@@ -43,6 +44,8 @@ export function Home() {
   const showLost = s.lost && prefs.lostCardFor !== today && (profile?.bestStreak ?? 0) > 0
   const showNotif = !profile?.notif?.enabled && !prefs.notifCardDismissed && dates.length >= 1 && pushSupported()
   const hasFood = day.foods.length > 0
+  const meals = useMeals()
+  const extraCount = profile?.extraMeals?.length ?? 0
 
   return (
     <TabScreen
@@ -80,13 +83,13 @@ export function Home() {
       ) : null}
 
       <div className="group-body meals">
-        {MEALS.map((m) => {
-          const foods = day.foods.filter((f) => f.meal === m)
+        {meals.map(({ id: m, label }) => {
+          const foods = day.foods.filter((f) => displayMeal(f.meal, profile) === m)
           const cal = foods.reduce((a, f) => a + f.cal, 0)
           return (
             <button key={m} className="row row--tap meal-row" onClick={() => pushScreen(<MealScreen date={selected} meal={m} />)}>
               <span className="row-main">
-                <span className="row-label">{MEAL_LABEL[m]}</span>
+                <span className="row-label">{label}</span>
                 {foods.length > 0 && <span className="row-sub">{foods.map((f) => f.name.split(',')[0]).slice(0, 3).join(' · ')}</span>}
               </span>
               <span className="row-value">{foods.length ? `${fmt(r0(cal))} cal` : '—'}</span>
@@ -97,6 +100,17 @@ export function Home() {
           )
         })}
       </div>
+      {extraCount < MAX_EXTRA_MEALS && (
+        <button
+          className="add-meal"
+          onClick={() => {
+            const meal = addExtraMeal()
+            if (meal) toast(`${meal.name} added`)
+          }}
+        >
+          + Add a meal
+        </button>
+      )}
       {selected !== today && (
         <Button kind="plain" onClick={() => setHomeDate(null)}>
           Back to today

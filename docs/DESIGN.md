@@ -8,6 +8,11 @@ The tokens below are implemented in [`src/theme/tokens.css`](../src/theme/tokens
 
 ## Color
 
+> **Update (Oct 28):** accents now come from the logo — **pink `#FF2D95`, cyan `#00E5FF`, yellow `#FFD60A`** — instead of neon green everywhere.
+> Primary buttons and the center (+) use a pink→cyan gradient; the calorie bar, rings and weight graph use the pink→cyan→yellow logo gradient;
+> links, toggles and focus rings are cyan; each tab lights up in its own logo color (Home pink, Fitness cyan, Weight yellow, Settings cyan).
+> Light mode uses the deeper versions (pink `#D6127A`, cyan `#0089A8`/`#007A99`, yellow `#B88A00`). Tokens: `--pink`, `--cyan`, `--yellow`, `--grad`, `--grad-btn`.
+
 ### Dark (default)
 | Token | CSS variable | Hex | Use |
 |---|---|---|---|

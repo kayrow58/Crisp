@@ -1,13 +1,18 @@
 // Meal screen: foods with macros, + to add, swipe and press-and-hold actions (spec §4.2, §5).
-import { ArrowsLeftRight, Copy, PencilSimple, Plus, Star, Trash } from '@phosphor-icons/react'
+import { ArrowsLeftRight, Copy, DotsThreeCircle, PencilSimple, Plus, Star, Trash } from '@phosphor-icons/react'
 import { PushedScreen } from '../components/Screen'
 import { SwipeRow } from '../components/SwipeRow'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Field } from '../components/ui'
+import { Sheet } from '../components/Sheet'
+import { ActionMenu } from '../components/SwipeRow'
 import { ForkKnife } from '@phosphor-icons/react'
 import { useDay, useList } from '../lib/store'
 import { copyToToday, deleteEntry, isFavorite, moveEntry, toggleFavorite } from '../lib/logging'
-import { MEAL_LABEL, MEALS, fmt, r0 } from '../lib/format'
-import { openSheet, showOverlay } from '../lib/ui'
+import { fmt, r0 } from '../lib/format'
+import { displayMeal, mealLabel, mealsFor, removeExtraMeal, renameExtraMeal } from '../lib/meals'
+import { getState, useStore } from '../lib/store'
+import { closeSheet, confirm, openSheet, popScreen, showOverlay, toast } from '../lib/ui'
+import { useState } from 'react'
 import { editEntry, openLog } from './Log'
 import { useToday } from '../lib/derived'
 import type { FoodEntry, FoodTemplate, Meal } from '../../shared/types'
@@ -16,16 +21,55 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
   const day = useDay(date)
   useList<FoodTemplate>('favorites') // re-render when favorites change
   const today = useToday()
-  const foods = day.foods.filter((f) => f.meal === meal)
+  const profile = useStore((s) => s.profile)
+  const isExtra = !!profile?.extraMeals?.some((m) => m.id === meal)
+  const foods = day.foods.filter((f) => displayMeal(f.meal, profile) === meal)
   const total = foods.reduce((a, f) => ({ cal: a.cal + f.cal, p: a.p + f.p, c: a.c + f.c, f: a.f + f.f }), { cal: 0, p: 0, c: 0, f: 0 })
 
   return (
     <PushedScreen
-      title={MEAL_LABEL[meal]}
+      title={mealLabel(meal)}
       right={
-        <button className="icon-btn pressable" onClick={() => openLog(date, meal)} aria-label={`Add to ${MEAL_LABEL[meal]}`}>
-          <Plus size={24} weight="bold" />
-        </button>
+        <span className="nav-actions">
+          {isExtra && (
+            <button
+              className="icon-btn pressable"
+              aria-label={`${mealLabel(meal)} options`}
+              onClick={() =>
+                showOverlay(
+                  <ActionMenu
+                    title={<strong>{mealLabel(meal)}</strong>}
+                    actions={[
+                      { label: 'Rename', icon: <PencilSimple size={18} />, run: () => openSheet(<RenameMealSheet id={meal} />) },
+                      {
+                        label: 'Remove this meal',
+                        icon: <Trash size={18} />,
+                        destructive: true,
+                        run: async () => {
+                          const ok = await confirm({
+                            title: `Remove ${mealLabel(meal)}?`,
+                            message: 'Foods already logged here will show under Snacks.',
+                            confirm: 'Remove',
+                            destructive: true,
+                          })
+                          if (!ok) return
+                          removeExtraMeal(meal)
+                          popScreen()
+                          toast('Meal removed')
+                        },
+                      },
+                    ]}
+                  />,
+                )
+              }
+            >
+              <DotsThreeCircle size={24} />
+            </button>
+          )}
+          <button className="icon-btn pressable" onClick={() => openLog(date, meal)} aria-label={`Add to ${mealLabel(meal)}`}>
+            <Plus size={24} weight="bold" />
+          </button>
+        </span>
       }
     >
       <div className="meal-total">
@@ -47,8 +91,8 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
       {foods.length === 0 ? (
         <EmptyState
           icon={ForkKnife}
-          text={`Nothing for ${MEAL_LABEL[meal].toLowerCase()} yet.`}
-          action={<Button onClick={() => openLog(date, meal)}>+ Add to {MEAL_LABEL[meal]}</Button>}
+          text={`Nothing for ${mealLabel(meal).toLowerCase()} yet.`}
+          action={<Button onClick={() => openLog(date, meal)}>+ Add to {mealLabel(meal)}</Button>}
         />
       ) : (
         <div className="group-body">
@@ -97,7 +141,10 @@ function MovePicker({ date, e }: { date: string; e: FoodEntry }) {
     <div className="menu-wrap" onClick={() => showOverlay(null)}>
       <div className="menu" role="menu" onClick={(ev) => ev.stopPropagation()}>
         <p className="menu-head">Move to…</p>
-        {MEALS.filter((m) => m !== e.meal).map((m) => (
+        {mealsFor(getState().profile)
+          .map((x) => x.id)
+          .filter((m) => m !== e.meal)
+          .map((m) => (
           <button
             key={m}
             className="menu-item"
@@ -107,7 +154,7 @@ function MovePicker({ date, e }: { date: string; e: FoodEntry }) {
               moveEntry(date, e.id, m)
             }}
           >
-            {MEAL_LABEL[m]}
+            {mealLabel(m)}
           </button>
         ))}
       </div>
@@ -115,4 +162,23 @@ function MovePicker({ date, e }: { date: string; e: FoodEntry }) {
   )
 }
 
-export { openSheet }
+
+function RenameMealSheet({ id }: { id: string }) {
+  const [name, setName] = useState(mealLabel(id))
+  return (
+    <Sheet title="Rename meal">
+      <Field label="Meal name" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} autoFocus placeholder="e.g. Pre-workout" />
+      <Button
+        className="sheet-cta"
+        disabled={!name.trim()}
+        onClick={() => {
+          renameExtraMeal(id, name)
+          closeSheet()
+          toast('Meal renamed')
+        }}
+      >
+        Save
+      </Button>
+    </Sheet>
+  )
+}

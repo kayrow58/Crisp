@@ -1,13 +1,15 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Lightning, MagnifyingGlass, Minus, Plus, PlusCircle, Star } from '@phosphor-icons/react'
+import { Lightning, MagnifyingGlass, Minus, NotePencil, Plus, PlusCircle, Star } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
 import { addEntry, logTemplate, updateEntry, type LogMethod } from '../lib/logging'
 import { getState, setCustomFoods, track, useList, useStore } from '../lib/store'
 import { closeAllSheets, closeSheet, openSheet, toast } from '../lib/ui'
-import { MEAL_LABEL, MEALS, fmt, r0 } from '../lib/format'
+import { fmt, r0 } from '../lib/format'
+import { ChipRow, MealBubble } from '../components/Pickers'
+import { TypeItSheet } from './TypeIt'
 import { api, errorMessage } from '../lib/api'
 import { mealForHour } from '../../shared/calc'
 import { hourInZone } from '../../shared/dates'
@@ -21,23 +23,9 @@ export function openLog(date: string, meal?: Meal) {
   openSheet(<LogSheet date={date} initialMeal={meal ?? defaultMeal()} />)
 }
 
-function MealPicker({ value, onChange, prefix = 'Log to' }: { value: Meal; onChange: (m: Meal) => void; prefix?: string }) {
-  return (
-    <label className="meal-chip">
-      <span>{prefix}:</span>
-      <select value={value} onChange={(e) => onChange(e.target.value as Meal)} aria-label="Meal">
-        {MEALS.map((m) => (
-          <option key={m} value={m}>
-            {MEAL_LABEL[m]}
-          </option>
-        ))}
-      </select>
-      <span aria-hidden>▾</span>
-    </label>
-  )
-}
+const MealPicker = MealBubble
 
-function useLibrary() {
+export function useLibrary() {
   const [lib, setLib] = useState<LibFood[] | null>(null)
   const [err, setErr] = useState(false)
   const custom = useStore((s) => s.customFoods)
@@ -86,6 +74,13 @@ function LogSheet({ date, initialMeal }: { date: string; initialMeal: Meal }) {
           enterKeyHint="search"
         />
       </div>
+      <button className="typeit-card pressable" onClick={() => openSheet(<TypeItSheet date={date} meal={meal} />)}>
+        <NotePencil size={24} weight="duotone" className="typeit-icon" aria-hidden />
+        <span className="row-main">
+          <strong>Type what you ate</strong>
+          <span className="muted small">“2 eggs, 1 cup rice, 6 oz chicken” — Crisp finds the matches</span>
+        </span>
+      </button>
       <div className="quick-row">
         <Button kind="secondary" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} />)}>
           <Lightning size={18} weight="fill" aria-hidden /> Quick add
@@ -246,14 +241,24 @@ export function PortionSheet({
         {food.units.length === 1 && <span className="unit-label">{food.units[0].label}</span>}
       </div>
       {food.units.length > 1 && (
-        <select className="input unit-select" value={unit} onChange={(e) => setUnit(Number(e.target.value))} aria-label="Unit">
-          {food.units.map((u, i) => (
-            <option key={u.label + i} value={i}>
-              {u.label}
-              {u.grams && u.label !== 'g' && u.label !== 'oz' ? ` (${fmt(u.grams)} g)` : ''}
-            </option>
-          ))}
-        </select>
+        <ChipRow
+          label="Portion size"
+          value={unit}
+          onChange={(i) => {
+            const label = food.units[i].label
+            // switching to grams/ounces: start from the same amount of food
+            const grams = (food.units[unit]?.grams ?? 100) * qty
+            if (label === 'g') setQtyText(String(Math.round(grams)))
+            else if (label === 'oz') setQtyText(String(Math.round((grams / 28.35) * 10) / 10))
+            else if (food.units[unit]?.label === 'g' || food.units[unit]?.label === 'oz') setQtyText('1')
+            setUnit(i)
+          }}
+          options={food.units.map((u, i) => ({
+            value: i,
+            label: u.label === 'g' ? 'grams' : u.label === 'oz' ? 'ounces' : u.label,
+            sub: u.grams && u.label !== 'g' && u.label !== 'oz' ? `${fmt(u.grams)} g` : undefined,
+          }))}
+        />
       )}
       <div className="portion-macros" aria-live="polite">
         <span className="big-number portion-cal">{fmt(r0(m.cal))}</span>

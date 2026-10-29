@@ -1,8 +1,7 @@
 import { CM_PER_IN, kgToLb, lbToKg } from '../../shared/calc'
-import type { Meal, Units } from '../../shared/types'
+import type { Units } from '../../shared/types'
 
-export const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snacks']
-export const MEAL_LABEL: Record<Meal, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snacks: 'Snacks' }
+export const CORE_MEAL_LABEL: Record<string, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snacks: 'Snacks' }
 
 /** Number with thousands separators. `fixed` keeps trailing zeros (e.g. 182.0). */
 export const fmt = (n: number, digits = 0, fixed = false) =>

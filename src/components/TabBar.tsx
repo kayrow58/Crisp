@@ -4,13 +4,14 @@ import './TabBar.css'
 
 export type Tab = 'home' | 'fitness' | 'weight' | 'settings'
 
-const left: { id: Tab; label: string; icon: Icon }[] = [
-  { id: 'home', label: 'Home', icon: House },
-  { id: 'fitness', label: 'Fitness', icon: Sneaker },
+// Each tab lights up in one of the logo colors.
+const left: { id: Tab; label: string; icon: Icon; color: string }[] = [
+  { id: 'home', label: 'Home', icon: House, color: 'var(--pink)' },
+  { id: 'fitness', label: 'Fitness', icon: Sneaker, color: 'var(--cyan)' },
 ]
-const right: { id: Tab; label: string; icon: Icon }[] = [
-  { id: 'weight', label: 'Weight', icon: Scales },
-  { id: 'settings', label: 'Settings', icon: GearSix },
+const right: { id: Tab; label: string; icon: Icon; color: string }[] = [
+  { id: 'weight', label: 'Weight', icon: Scales, color: 'var(--yellow)' },
+  { id: 'settings', label: 'Settings', icon: GearSix, color: 'var(--cyan)' },
 ]
 
 type Props = {
@@ -22,7 +23,7 @@ type Props = {
 // Home · Fitness · (+) · Weight · Settings (spec §4).
 // Inactive = gray outline; active = solid neon (DESIGN.md · Icons).
 export default function TabBar({ active, onChange, onLog }: Props) {
-  const renderTab = ({ id, label, icon: IconCmp }: (typeof left)[number]) => {
+  const renderTab = ({ id, label, icon: IconCmp, color }: (typeof left)[number]) => {
     const isActive = id === active
     return (
       <button
@@ -30,6 +31,7 @@ export default function TabBar({ active, onChange, onLog }: Props) {
         className={`tab pressable${isActive ? ' tab--active' : ''}`}
         onClick={() => onChange(id)}
         aria-current={isActive ? 'page' : undefined}
+        style={{ '--tab-color': color } as React.CSSProperties}
       >
         <IconCmp size={26} weight={isActive ? 'fill' : 'regular'} aria-hidden />
         <span className="tab-label">{label}</span>

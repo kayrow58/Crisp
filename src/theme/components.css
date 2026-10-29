@@ -1,32 +1,21 @@
 /* Crisp components — see docs/DESIGN.md */
 
-/* ---------- layout ---------- */
+/* ---------- layout ----------
+   Like Stax: the page itself scrolls (no fixed full-screen containers), so iOS Home Screen
+   apps fill the whole screen. Only the tab bar, sheets and pushed screens are fixed. */
 .app {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
+  min-height: 100dvh;
   background: var(--bg);
 }
 .tab-content {
-  flex: 1;
-  min-height: 0;
-  position: relative;
   animation: fade 140ms ease;
 }
 .tabscreen {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
+  min-height: 100dvh;
 }
 .scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  padding: calc(var(--safe-top) + var(--s2)) calc(var(--edge) + var(--safe-right)) calc(var(--s6) + 56px) calc(var(--edge) + var(--safe-left));
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + var(--s2)) calc(var(--edge) + var(--safe-right)) calc(var(--tabbar-h) + var(--safe-bottom) + var(--s6)) calc(var(--edge) + var(--safe-left));
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -36,6 +25,11 @@
   flex-shrink: 0;
 }
 .scroll--pushed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding-top: var(--s3);
   padding-bottom: calc(var(--safe-bottom) + var(--s6));
 }
@@ -53,7 +47,7 @@
   line-height: 1.1;
 }
 .compact-head {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -191,8 +185,9 @@
   gap: 6px;
 }
 .btn--primary {
-  background: var(--primary);
+  background: var(--grad-btn);
   color: var(--on-primary);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--pink) 25%, transparent);
 }
 .btn--secondary {
   background: var(--raised);
@@ -323,10 +318,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--s3);
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pink) 35%, transparent);
 }
 .info-icon {
-  color: var(--primary);
+  color: var(--yellow);
 }
 
 /* ---------- inputs ---------- */
@@ -574,7 +569,7 @@ select.input {
   font-weight: 600;
 }
 .week-day--today .week-num {
-  color: var(--primary);
+  color: var(--pink);
 }
 .week-day--on {
   background: var(--raised);
@@ -872,7 +867,7 @@ select.input {
   color: var(--primary);
 }
 .relog {
-  color: var(--primary);
+  color: var(--pink);
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   display: grid;
@@ -1120,7 +1115,7 @@ select.input {
   background: var(--error);
 }
 .toast-check {
-  color: #39ff14;
+  color: #00e5ff;
 }
 .toast-text {
   font-size: var(--t-subhead);
@@ -1130,7 +1125,7 @@ select.input {
   text-overflow: ellipsis;
 }
 .toast-undo {
-  color: #39ff14;
+  color: #00e5ff;
   font-weight: 600;
   padding: 6px var(--s3);
   min-height: 36px;
@@ -1161,9 +1156,7 @@ select.input {
 .gate,
 .auth,
 .onboard {
-  position: fixed;
-  inset: 0;
-  overflow-y: auto;
+  min-height: 100dvh;
   padding: calc(var(--safe-top) + var(--s5)) calc(var(--edge) + var(--safe-right)) calc(var(--safe-bottom) + var(--s5)) calc(var(--edge) + var(--safe-left));
   display: flex;
   flex-direction: column;
@@ -1206,7 +1199,7 @@ select.input {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--grad-btn);
   color: var(--on-primary);
   display: grid;
   place-items: center;
@@ -1236,7 +1229,7 @@ select.input {
 }
 .auth-logo {
   border-radius: 26px;
-  box-shadow: 0 0 40px rgba(57, 255, 20, 0.2);
+  box-shadow: 0 0 40px rgba(255, 45, 149, 0.22), 0 0 70px rgba(0, 229, 255, 0.15);
 }
 .auth-logo--small {
   border-radius: 18px;
@@ -1290,7 +1283,7 @@ select.input {
 }
 .progress-fill {
   height: 100%;
-  background: var(--primary);
+  background: var(--grad);
   border-radius: var(--r-pill);
   transition: width var(--dur-screen) var(--spring);
 }
@@ -1374,7 +1367,7 @@ select.input {
   font-variant-numeric: tabular-nums;
 }
 .balance-num--neon {
-  color: var(--primary);
+  color: var(--cyan);
 }
 .balance-slash {
   font-size: 2rem;
@@ -1434,23 +1427,24 @@ select.input {
 }
 .chart-line {
   fill: none;
-  stroke: var(--primary-fill);
+  stroke: url(#crispGrad);
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--primary-fill) 60%, transparent));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pink) 50%, transparent));
 }
 :root[data-theme='light'] .chart-line {
   filter: none;
 }
 .chart-dot {
-  fill: var(--primary-fill);
+  fill: var(--cyan);
 }
 .chart-bar {
-  fill: color-mix(in srgb, var(--primary-fill) 75%, transparent);
+  fill: url(#crispGrad);
+  opacity: 0.75;
 }
 .chart-bar--on {
-  fill: var(--primary-fill);
+  opacity: 1;
 }
 .chart-scrub {
   stroke: var(--text-2);
@@ -1458,7 +1452,7 @@ select.input {
 }
 .chart-scrub-dot {
   fill: var(--bg);
-  stroke: var(--primary-fill);
+  stroke: var(--pink);
   stroke-width: 3;
 }
 .chart-label {
@@ -1504,8 +1498,11 @@ select.input {
   font-family: var(--font-rounded);
   font-size: 4.5rem;
   font-weight: 700;
-  color: var(--primary);
-  text-shadow: 0 0 24px color-mix(in srgb, var(--primary) 60%, transparent);
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--pink) 45%, transparent));
 }
 .milestone-wrap--big .milestone-pct {
   font-size: 5.5rem;
@@ -1626,7 +1623,7 @@ select.input {
 .dau-bar {
   flex: 1;
   min-height: 2px;
-  background: var(--primary-fill);
+  background: linear-gradient(0deg, var(--pink), var(--cyan));
   border-radius: 2px 2px 0 0;
 }
 .kv {
@@ -1792,4 +1789,197 @@ select.input {
     opacity: 0;
     visibility: hidden;
   }
+}
+
+/* ---------- themed bubbles (unit + meal pickers) ---------- */
+.chip-row {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 2px 6px;
+  margin: 0 -2px;
+  -webkit-overflow-scrolling: touch;
+}
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+.bubble {
+  flex: none;
+  min-height: 40px;
+  max-width: 230px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--card);
+  border: 1.5px solid var(--divider);
+  color: var(--text);
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  font-size: var(--t-subhead);
+  line-height: 1.2;
+}
+:root:not([data-theme='light']) .sheet .bubble {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  border-color: transparent;
+}
+.bubble span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bubble-sub {
+  font-size: var(--t-caption);
+  color: var(--text-2);
+}
+.bubble--on,
+:root:not([data-theme='light']) .sheet .bubble--on {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  color: var(--text);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--pink) 30%, transparent);
+}
+:root[data-theme='light'] .bubble--on {
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    var(--grad) border-box;
+}
+.bubble--on .bubble-sub {
+  color: var(--cyan);
+}
+.meal-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  align-items: flex-start;
+}
+.meal-chip strong {
+  font-weight: 700;
+}
+.meal-caret {
+  transition: transform 200ms ease;
+}
+.meal-caret--open {
+  transform: rotate(180deg);
+}
+.meal-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  animation: lift 180ms var(--spring);
+}
+.add-meal {
+  align-self: center;
+  color: var(--text-2);
+  font-size: var(--t-subhead);
+  min-height: var(--touch-min);
+  padding: 0 var(--s3);
+}
+.add-meal:active {
+  color: var(--cyan);
+}
+
+/* ---------- type what you ate ---------- */
+.typeit-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: 16px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  text-align: left;
+}
+:root[data-theme='light'] .typeit-card {
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    var(--grad) border-box;
+}
+.typeit-icon {
+  color: var(--pink);
+  flex: none;
+}
+.typeit-text {
+  min-height: 110px;
+  padding: var(--s3) var(--s4);
+  resize: none;
+  line-height: 1.4;
+}
+.typeit-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.typeit-row {
+  background: var(--card);
+  border-radius: 16px;
+  padding: var(--s2) var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+:root:not([data-theme='light']) .sheet .typeit-row {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.typeit-row--off {
+  opacity: 0.5;
+}
+.typeit-row--miss {
+  flex-direction: row;
+  align-items: center;
+  border: 1px dashed var(--divider);
+}
+.typeit-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.typeit-check {
+  color: var(--cyan);
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: grid;
+  place-items: center;
+}
+.typeit-main {
+  text-align: left;
+  min-height: var(--touch-min);
+}
+.typeit-main .row-sub {
+  white-space: normal;
+}
+.typeit-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: 0 0 var(--s2) calc(var(--touch-min) + var(--s2));
+}
+.stepper-val {
+  min-width: 56px;
+  text-align: center;
+  font-family: var(--font-rounded);
+  font-weight: 700;
+  font-size: var(--t-headline);
+}
+.alt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alt {
+  max-width: none;
+  white-space: normal;
+}
+.alt span:first-child {
+  white-space: normal;
+}
+
+.nav-actions {
+  display: inline-flex;
+  align-items: center;
 }

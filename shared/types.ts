@@ -5,7 +5,14 @@ export type Units = 'imperial' | 'metric'
 export type Goal = 'lose' | 'maintain' | 'gain'
 export type ActivityMode = 'level' | 'track'
 export type ActivityLevel = 'sedentary' | 'light' | 'active' | 'very'
-export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+/** Core meals, plus extra meals people add (ids like 'meal-k3x9'). */
+export type CoreMeal = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+export type Meal = CoreMeal | (string & {})
+
+export interface ExtraMeal {
+  id: string
+  name: string
+}
 
 export interface Targets {
   calories: number
@@ -41,6 +48,8 @@ export interface Profile {
   /** ISO time of the last Shortcut sync (server-owned) */
   fitnessLastSync?: string
   passkeyEnabled?: boolean
+  /** Extra meals for people who eat 4–6 times a day (shown between Dinner and Snacks) */
+  extraMeals?: ExtraMeal[]
 }
 
 export interface FoodEntry {

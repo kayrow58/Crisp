@@ -115,6 +115,7 @@ export default handler(async (req, url) => {
           favorite: count((e) => e.type === 'food_logged' && e.details?.method === 'favorite'),
           quick: count((e) => e.type === 'food_logged' && e.details?.method === 'quick'),
           custom: count((e) => e.type === 'food_logged' && e.details?.method === 'custom'),
+          typed: count((e) => e.type === 'food_logged' && e.details?.method === 'typed'),
         },
         fitnessConnected: profiles.filter((p) => p.fitnessLastSync).length,
         faceIdOn: profiles.filter((p) => p.passkeyEnabled).length,

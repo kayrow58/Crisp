@@ -68,6 +68,13 @@ export function WeightChart({ points, unit, style }: { points: { date: string; v
         onPointerMove={(e) => e.buttons && pick(e.clientX)}
         onPointerUp={() => setTimeout(() => setActive(null), 1500)}
       >
+        <defs>
+          <linearGradient id="crispGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" style={{ stopColor: 'var(--pink)' }} />
+            <stop offset="55%" style={{ stopColor: 'var(--cyan)' }} />
+            <stop offset="100%" style={{ stopColor: 'var(--yellow)' }} />
+          </linearGradient>
+        </defs>
         {[0.25, 0.5, 0.75].map((f) => (
           <line key={f} x1={pad.l} x2={W - pad.r} y1={pad.t + f * (H - pad.t - pad.b)} y2={pad.t + f * (H - pad.t - pad.b)} className="chart-grid" />
         ))}

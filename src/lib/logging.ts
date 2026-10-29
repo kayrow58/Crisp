@@ -2,10 +2,11 @@
 import type { FoodEntry, FoodTemplate, Meal } from '../../shared/types'
 import { streak } from '../../shared/calc'
 import { getDay, getDoc, getState, list, pushTemplate, removeTemplate, today, track, updateDay, updateProfile } from './store'
-import { MEAL_LABEL, newId } from './format'
+import { newId } from './format'
+import { mealLabel } from './meals'
 import { toast } from './ui'
 
-export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom'
+export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom' | 'typed'
 
 const templateKey = (e: Pick<FoodEntry, 'foodId' | 'name' | 'unit'>) => `${e.foodId}|${e.foodId === 'q' ? e.name : ''}|${e.unit}`
 
@@ -30,7 +31,7 @@ export function addEntry(date: string, e: Omit<FoodEntry, 'id' | 'at'>, method: 
   pushTemplate('recents', toTemplate(entry))
   track('food_logged', { method, meal: e.meal })
   if (wasEmpty) afterFirstFoodOfDay(date)
-  if (!opts.silent) toast(`Added to ${MEAL_LABEL[e.meal]}`, { undo: () => removeEntry(date, entry.id, false) })
+  if (!opts.silent) toast(`Added to ${mealLabel(e.meal)}`, { undo: () => removeEntry(date, entry.id, false) })
   return entry
 }
 
@@ -64,13 +65,13 @@ export function updateEntry(date: string, id: string, patch: Partial<FoodEntry>)
 
 export function moveEntry(date: string, id: string, meal: Meal) {
   updateEntry(date, id, { meal })
-  toast(`Moved to ${MEAL_LABEL[meal]}`)
+  toast(`Moved to ${mealLabel(meal)}`)
 }
 
 export function copyToToday(e: FoodEntry) {
   const { id: _id, at: _at, ...rest } = e
   addEntry(today(), rest, 'recent', { silent: true })
-  toast(`Copied to today's ${MEAL_LABEL[e.meal]}`)
+  toast(`Copied to today's ${mealLabel(e.meal)}`)
 }
 
 export function isFavorite(e: Pick<FoodEntry, 'foodId' | 'name' | 'unit'>) {

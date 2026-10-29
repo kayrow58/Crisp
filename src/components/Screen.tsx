@@ -1,6 +1,6 @@
 // Screen layouts: tab screens with a large title that collapses on scroll + optional pull-to-refresh,
 // and pushed screens with ‹ Back and a left-edge swipe that follows your finger (spec §5).
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { CaretLeft } from '@phosphor-icons/react'
 import { popScreen } from '../lib/ui'
 
@@ -22,10 +22,17 @@ export function TabScreen({
   const [pull, setPull] = useState(0)
   const [refreshing, setRefreshing] = useState<'no' | 'spin' | 'done'>('no')
   const startY = useRef<number | null>(null)
-  const el = useRef<HTMLDivElement>(null)
+
+  // The page itself scrolls (like Stax), so watch the window.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    const onScroll = () => setCollapsed(window.scrollY > 44)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (!onRefresh || (el.current?.scrollTop ?? 0) > 0) return
+    if (!onRefresh || window.scrollY > 0) return
     startY.current = e.touches[0].clientY
   }
   const onTouchMove = (e: React.TouchEvent) => {
@@ -58,9 +65,7 @@ export function TabScreen({
         {collapsed && sticky}
       </header>
       <div
-        ref={el}
         className="scroll"
-        onScroll={(e) => setCollapsed((e.target as HTMLElement).scrollTop > 44)}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}

@@ -14,7 +14,10 @@ export function Bar({ value, target, color, label, thick }: { value: number; tar
       aria-valuemax={Math.round(target)}
       aria-valuenow={Math.round(value)}
     >
-      <div className="bar-fill" style={{ width: `${(overPct ? 1 - overPct : pct) * 100}%`, background: color, color }} />
+      <div
+        className="bar-fill"
+        style={{ width: `${(overPct ? 1 - overPct : pct) * 100}%`, background: color, color: color.includes('gradient') || color.includes('grad') ? 'var(--pink)' : color }}
+      />
       {overPct > 0 && <div className="bar-over" style={{ width: `${overPct * 100}%` }} />}
     </div>
   )
@@ -69,7 +72,7 @@ export function StatCard({
       </div>
       {display === 'bars' ? (
         <>
-          <Bar thick value={totals.cal} target={allowance} color="var(--primary-fill)" label={`Calories, ${r0(totals.cal)} of ${allowance}`} />
+          <Bar thick value={totals.cal} target={allowance} color="var(--grad)" label={`Calories, ${r0(totals.cal)} of ${allowance}`} />
           <div className="macro-grid">
             {MACROS.map((m) => {
               const v = totals[m.key]
@@ -98,7 +101,7 @@ export function StatCard({
 
 function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: number; goals: { p: number; c: number; f: number }; mode: 'eaten' | 'left' }) {
   const rings = [
-    { v: totals.cal, g: allowance, color: 'var(--primary-fill)', label: 'Calories' },
+    { v: totals.cal, g: allowance, color: 'url(#ringGrad)', label: 'Calories' },
     { v: totals.p, g: goals.p, color: 'var(--protein)', label: 'Protein' },
     { v: totals.c, g: goals.c, color: 'var(--carbs)', label: 'Carbs' },
     { v: totals.f, g: goals.f, color: 'var(--fat)', label: 'Fat' },
@@ -107,6 +110,13 @@ function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: 
   return (
     <div className="rings">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" style={{ stopColor: 'var(--pink)' }} />
+            <stop offset="55%" style={{ stopColor: 'var(--cyan)' }} />
+            <stop offset="100%" style={{ stopColor: 'var(--yellow)' }} />
+          </linearGradient>
+        </defs>
         {rings.map((r, i) => {
           const radius = 66 - i * 15
           const circ = 2 * Math.PI * radius
@@ -147,7 +157,7 @@ function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: 
 export function MiniCalorieBar({ eaten, allowance }: { eaten: number; allowance: number }) {
   return (
     <div className="mini-bar">
-      <Bar value={eaten} target={allowance} color="var(--primary-fill)" label={`Calories, ${r0(eaten)} of ${allowance}`} />
+      <Bar value={eaten} target={allowance} color="var(--grad)" label={`Calories, ${r0(eaten)} of ${allowance}`} />
       <span className="mini-bar-text">
         {fmt(r0(eaten))} / {fmt(allowance)}
       </span>

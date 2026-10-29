@@ -162,6 +162,10 @@ export function Admin() {
             <b>{f.logMethods.favorite}</b>
           </li>
           <li>
+            <span>Typed it out</span>
+            <b>{f.logMethods.typed ?? 0}</b>
+          </li>
+          <li>
             <span>Quick add</span>
             <b>{f.logMethods.quick}</b>
           </li>

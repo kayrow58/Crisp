@@ -8,9 +8,16 @@
   --divider: #2c2c2e;
   --text: #ffffff;
   --text-2: #8e8e93;
-  --primary: #39ff14;
+  /* Accents come from the logo: pink · cyan · yellow */
+  --pink: #ff2d95;
+  --cyan: #00e5ff;
+  --yellow: #ffd60a;
+  --grad: linear-gradient(90deg, var(--pink), var(--cyan) 55%, var(--yellow));
+  --grad-btn: linear-gradient(90deg, #ff4fa8, var(--cyan));
+  --primary: var(--cyan); /* links, toggles, focus */
   --on-primary: #000000;
-  --primary-fill: #39ff14;
+  --primary-fill: var(--cyan);
+  --success: var(--cyan);
   --protein: #ff2d95;
   --carbs: #00e5ff;
   --fat: #ffd60a;
@@ -30,9 +37,15 @@
   --divider: #d1d1d6;
   --text: #000000;
   --text-2: #6c6c70;
-  --primary: #147a08;
+  --pink: #d6127a;
+  --cyan: #0089a8;
+  --yellow: #b88a00;
+  --grad: linear-gradient(90deg, var(--pink), var(--cyan) 55%, var(--yellow));
+  --grad-btn: linear-gradient(90deg, #c40f6f, #007a99);
+  --primary: #007a99; /* white text on it ≈ 4.9:1 */
   --on-primary: #ffffff;
-  --primary-fill: #1a9e0b;
+  --primary-fill: #007a99;
+  --success: #007a99;
   --protein: #d6127a;
   --carbs: #0089a8;
   --fat: #b88a00;

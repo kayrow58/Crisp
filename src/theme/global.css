@@ -7,15 +7,8 @@
   box-sizing: border-box;
 }
 
-/* Full-bleed to every edge of the iPhone screen, including under the Home indicator.
-   We size with position: fixed + inset: 0 (not 100vh/100dvh, which iOS Home Screen apps
-   sometimes report short) and pad for the safe areas inside. */
-html,
-body,
-#root {
-  height: 100%;
-}
-
+/* Full-bleed to every edge of the iPhone screen (same approach as Stax): the document scrolls
+   normally and the background color runs under the status bar and Home indicator. */
 html {
   font: -apple-system-body; /* follows the iPhone text-size setting */
   -webkit-text-size-adjust: 100%;
@@ -24,16 +17,14 @@ html {
 
 body {
   margin: 0;
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: var(--t-body);
   line-height: var(--lh);
   -webkit-font-smoothing: antialiased;
-  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -113,4 +104,9 @@ code {
   .pressable:active:not(:disabled) {
     transform: none;
   }
+}
+
+html.locked,
+html.locked body {
+  overflow: hidden;
 }

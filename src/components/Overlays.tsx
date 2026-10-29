@@ -8,6 +8,11 @@ export function Overlays() {
   const screens = useUi((s) => s.screens)
   const sheets = useUi((s) => s.sheets)
   const overlay = useUi((s) => s.overlay)
+  const covered = screens.length > 0 || sheets.length > 0 || !!overlay
+  // Keep the page behind sheets and pushed screens from scrolling.
+  useEffect(() => {
+    document.documentElement.classList.toggle('locked', covered)
+  }, [covered])
   return (
     <>
       {screens.map((s) => (
