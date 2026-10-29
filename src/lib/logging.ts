@@ -6,7 +6,7 @@ import { newId } from './format'
 import { mealLabel } from './meals'
 import { toast } from './ui'
 
-export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom' | 'typed' | 'brand'
+export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom' | 'typed' | 'brand' | 'saved_meal' | 'voice'
 
 const templateKey = (e: Pick<FoodEntry, 'foodId' | 'name' | 'unit'>) => `${e.foodId}|${e.foodId === 'q' ? e.name : ''}|${e.unit}`
 
@@ -24,8 +24,8 @@ function afterFirstFoodOfDay(date: string) {
   window.dispatchEvent(new CustomEvent('crisp:flare'))
 }
 
-export function addEntry(date: string, e: Omit<FoodEntry, 'id' | 'at'>, method: LogMethod, opts: { silent?: boolean } = {}) {
-  const entry: FoodEntry = { ...e, id: newId(), at: new Date().toISOString(), cal: round1(e.cal), p: round1(e.p), c: round1(e.c), f: round1(e.f) }
+export function addEntry(date: string, e: Omit<FoodEntry, 'id' | 'at'>, method: LogMethod, opts: { silent?: boolean; at?: string } = {}) {
+  const entry: FoodEntry = { ...e, id: newId(), at: opts.at ?? atForDate(date), cal: round1(e.cal), p: round1(e.p), c: round1(e.c), f: round1(e.f) }
   const wasEmpty = getDay(date).foods.length === 0
   updateDay(date, (d) => ({ ...d, foods: [...d.foods, entry] }))
   pushTemplate('recents', toTemplate(entry))
@@ -35,13 +35,25 @@ export function addEntry(date: string, e: Omit<FoodEntry, 'id' | 'at'>, method: 
   return entry
 }
 
+/**
+ * When a food was logged: now for today; for another day, that day at the current hour
+ * (or at a chosen hour when editing). Stored as an ISO time; shown as just the hour.
+ */
+export function atForDate(date: string, hour?: number): string {
+  const now = new Date()
+  const [y, m, d] = date.split('-').map(Number)
+  const isToday = now.getFullYear() === y && now.getMonth() + 1 === m && now.getDate() === d
+  if (hour == null && isToday) return now.toISOString()
+  return new Date(y, m - 1, d, hour ?? now.getHours(), hour == null ? now.getMinutes() : 0).toISOString()
+}
+
 const round1 = (n: number) => Math.round(n * 10) / 10
 
 export function logTemplate(date: string, t: FoodTemplate, meal: Meal, method: LogMethod) {
   addEntry(date, { foodId: t.foodId, name: t.name, meal, qty: t.qty, unit: t.unit, cal: t.cal, p: t.p, c: t.c, f: t.f }, method)
 }
 
-function removeEntry(date: string, id: string, markDeleted = true) {
+export function removeEntry(date: string, id: string, markDeleted = true) {
   updateDay(date, (d) => ({ ...d, foods: d.foods.filter((f) => f.id !== id), deleted: markDeleted ? [...d.deleted, id] : [...d.deleted, id] }))
 }
 

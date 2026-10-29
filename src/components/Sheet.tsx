@@ -10,6 +10,8 @@ export function Sheet({
   onClose,
   left,
   right,
+  footer,
+  dirtyMessage,
 }: {
   title?: string
   children: ReactNode
@@ -19,14 +21,18 @@ export function Sheet({
   onClose?: () => void
   left?: ReactNode
   right?: ReactNode
+  /** pinned under the scrolling body (e.g. the Log sheet's running list) */
+  footer?: ReactNode
+  dirtyMessage?: string
 }) {
   const [dy, setDy] = useState(0)
   const [closing, setClosing] = useState(false)
   const start = useRef<number | null>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const vv = useKeyboardViewport()
 
   const close = async () => {
-    if (dirty && !(await confirm({ title: 'Discard changes?', message: "What you typed won't be saved.", confirm: 'Discard', cancel: 'Keep editing', destructive: true }))) {
+    if (dirty && !(await confirm({ title: 'Discard changes?', message: dirtyMessage ?? "What you typed won't be saved.", confirm: 'Discard', cancel: 'Keep editing', destructive: true }))) {
       setDy(0)
       return
     }
@@ -59,7 +65,10 @@ export function Sheet({
   }
 
   return (
-    <div className={`sheet-wrap${closing ? ' sheet-wrap--closing' : ''}`}>
+    <div
+      className={`sheet-wrap${closing ? ' sheet-wrap--closing' : ''}${vv ? ' sheet-wrap--kb' : ''}`}
+      style={vv ? { top: vv.top, height: vv.height, bottom: 'auto' } : undefined}
+    >
       <div className="sheet-dim" onClick={() => void close()} aria-hidden />
       <div
         ref={panel}
@@ -80,6 +89,7 @@ export function Sheet({
           )}
         </div>
         <div className="sheet-body">{children}</div>
+        {footer}
       </div>
     </div>
   )
@@ -88,4 +98,32 @@ export function Sheet({
 /** Helper for sheets that close themselves after saving. */
 export function finishSheet() {
   closeSheet()
+}
+
+/**
+ * While the iPhone keyboard is up, iOS slides the page up to make room, which pushed sheets off the top.
+ * Pin the sheet to the part of the screen you can actually see (above the keyboard) instead.
+ */
+function useKeyboardViewport() {
+  const [box, setBox] = useState<{ top: number; height: number } | null>(null)
+  useEffect(() => {
+    const v = window.visualViewport
+    if (!v) return
+    const on = () => {
+      const keyboard = window.innerHeight - v.height > 120
+      setBox(keyboard ? { top: Math.round(v.offsetTop), height: Math.round(v.height) } : null)
+      if (keyboard) {
+        const el = document.activeElement as HTMLElement | null
+        requestAnimationFrame(() => el?.scrollIntoView?.({ block: 'nearest' }))
+      }
+    }
+    v.addEventListener('resize', on)
+    v.addEventListener('scroll', on)
+    on()
+    return () => {
+      v.removeEventListener('resize', on)
+      v.removeEventListener('scroll', on)
+    }
+  }, [])
+  return box
 }

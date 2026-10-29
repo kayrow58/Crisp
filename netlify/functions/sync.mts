@@ -9,7 +9,7 @@ import type { Profile } from '../../shared/types'
 
 export const config: Config = { path: ['/api/sync', '/api/sync/*'] }
 
-const DOC_KEY = /^(weights|favorites|recents|dayindex|days\/\d{4}-\d{2}-\d{2})$/
+const DOC_KEY = /^(weights|favorites|recents|meals|dayindex|days\/\d{4}-\d{2}-\d{2})$/
 
 export default handler(async (req, url) => {
   const s = requireSession(req)
@@ -24,7 +24,7 @@ export default handler(async (req, url) => {
     const days = requested
       ? requested.split(',').filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 60)
       : Array.from({ length: 14 }, (_, i) => addDays(today, -i))
-    const keys = [...(requested ? [] : ['weights', 'favorites', 'recents', 'dayindex']), ...days.map((d) => `days/${d}`)]
+    const keys = [...(requested ? [] : ['weights', 'favorites', 'recents', 'meals', 'dayindex']), ...days.map((d) => `days/${d}`)]
     const docs: Record<string, { data: unknown; etag: string | null }> = {}
     await Promise.all(
       keys.map(async (k) => {

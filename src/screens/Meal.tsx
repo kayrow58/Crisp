@@ -1,5 +1,5 @@
 // Meal screen: foods with macros, + to add, swipe and press-and-hold actions (spec §4.2, §5).
-import { ArrowsLeftRight, Copy, DotsThreeCircle, PencilSimple, Plus, Star, Trash } from '@phosphor-icons/react'
+import { ArrowsLeftRight, BookmarkSimple, Copy, DotsThreeCircle, PencilSimple, Plus, Star, Trash } from '@phosphor-icons/react'
 import { PushedScreen } from '../components/Screen'
 import { SwipeRow } from '../components/SwipeRow'
 import { Button, EmptyState, Field } from '../components/ui'
@@ -8,7 +8,8 @@ import { ActionMenu } from '../components/SwipeRow'
 import { ForkKnife } from '@phosphor-icons/react'
 import { useDay, useList } from '../lib/store'
 import { copyToToday, deleteEntry, isFavorite, moveEntry, toggleFavorite } from '../lib/logging'
-import { fmt, r0 } from '../lib/format'
+import { amountLabel, fmt, hourLabel, r0 } from '../lib/format'
+import { SaveMealSheet } from './SavedMeals'
 import { displayMeal, mealLabel, mealsFor, removeExtraMeal, renameExtraMeal } from '../lib/meals'
 import { getState, useStore } from '../lib/store'
 import { closeSheet, confirm, openSheet, popScreen, showOverlay, toast } from '../lib/ui'
@@ -96,10 +97,25 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
         />
       ) : (
         <div className="group-body">
-          {foods.map((e) => (
+          {[...foods].sort((a, b) => a.at.localeCompare(b.at)).map((e) => (
             <FoodRow key={e.id} e={e} date={date} today={today} />
           ))}
         </div>
+      )}
+      {foods.length > 1 && (
+        <button
+          className="add-meal"
+          onClick={() =>
+            openSheet(
+              <SaveMealSheet
+                name={mealLabel(meal)}
+                items={foods.map((f) => ({ foodId: f.foodId, name: f.name, qty: f.qty, unit: f.unit, cal: f.cal, p: f.p, c: f.c, f: f.f }))}
+              />,
+            )
+          }
+        >
+          <BookmarkSimple size={16} weight="bold" aria-hidden /> Save as a meal
+        </button>
       )}
     </PushedScreen>
   )
@@ -116,7 +132,7 @@ function FoodRow({ e, date, today }: { e: FoodEntry; date: string; today: string
       onFavorite={() => toggleFavorite(e)}
       favorite={fav}
       menu={[
-        { label: 'Edit portion', icon: <PencilSimple size={18} />, run: () => void editEntry(date, e) },
+        { label: 'Edit portion or time', icon: <PencilSimple size={18} />, run: () => void editEntry(date, e) },
         { label: 'Move to…', icon: <ArrowsLeftRight size={18} />, run: () => showOverlay(<MovePicker date={date} e={e} />) },
         ...(date !== today ? [{ label: 'Copy to today', icon: <Copy size={18} />, run: () => copyToToday(e) }] : []),
         { label: fav ? 'Remove favorite' : 'Favorite', icon: <Star size={18} weight={fav ? 'fill' : 'regular'} />, run: () => toggleFavorite(e) },
@@ -128,7 +144,8 @@ function FoodRow({ e, date, today }: { e: FoodEntry; date: string; today: string
           {e.name} {fav && <Star size={12} weight="fill" className="fav-star" aria-hidden />}
         </span>
         <span className="row-sub">
-          {fmt(e.qty, 2)} {e.unit} · P {r0(e.p)} · C {r0(e.c)} · F {r0(e.f)}
+          {hourLabel(e.at) && <span className="row-time">{hourLabel(e.at)} · </span>}
+          {amountLabel(e.qty, e.unit)} · P {r0(e.p)} · C {r0(e.c)} · F {r0(e.f)}
         </span>
       </span>
       <span className="row-value">{fmt(r0(e.cal))}</span>

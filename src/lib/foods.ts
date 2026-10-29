@@ -1,8 +1,9 @@
 // Built-in USDA food library (public/foods.json, built by scripts/build-foods.mjs) + search.
 import type { BrandFood, CustomFood } from '../../shared/types'
+import { fuzzySearch } from './match'
 
-/** [id, name, kcal, protein, carbs, fat (all per 100 g), portions [[label, grams]], featured] */
-type Row = [string, string, number, number, number, number, [string, number][], number]
+/** [id, name, kcal, protein, carbs, fat (all per 100 g), portions [[label, grams]], featured, kind] */
+type Row = [string, string, number, number, number, number, [string, number][], number, number?]
 
 export interface LibFood {
   id: string // 'u:<ndb>' or 'c:<id>'
@@ -12,6 +13,8 @@ export interface LibFood {
   perServing?: { cal: number; p: number; c: number; f: number }
   units: { label: string; grams?: number }[]
   featured: boolean
+  /** 1 generic everyday food (FNDDS) · 0 detailed food (SR28) · 2 brand or restaurant item */
+  kind?: 0 | 1 | 2
   createdByName?: string
   custom?: CustomFood
   /** store-brand product (USDA Branded Foods / Open Food Facts) */
@@ -27,8 +30,9 @@ export function loadLibrary(): Promise<LibFood[]> {
     loading = fetch('/foods.json')
       .then((r) => r.json())
       .then((j: { foods: Row[] }) => {
-        lib = j.foods.map(([id, name, cal, p, c, f, portions, featured]) => ({
+        lib = j.foods.map(([id, name, cal, p, c, f, portions, featured, kind]) => ({
           id: `u:${id}`,
+          kind: (kind ?? 0) as 0 | 1 | 2,
           name,
           per100: { cal, p, c, f },
           units: [...portions.map(([label, grams]) => ({ label, grams })), { label: 'g', grams: 1 }, { label: 'oz', grams: 28.35 }],
@@ -68,40 +72,10 @@ export function macrosFor(food: LibFood, unitIndex: number, qty: number) {
   return { cal: (m.cal * grams) / 100, p: (m.p * grams) / 100, c: (m.c * grams) / 100, f: (m.f * grams) / 100 }
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9% ]+/g, ' ').replace(/\s+/g, ' ').trim()
-
-/** Simple ranked search: every word must appear; earlier and shorter matches rank higher. */
+/**
+ * Search box: generic everyday foods first ("Sour cream, regular"), then detailed foods,
+ * then brands and restaurants (unless a brand name was typed). Tolerates typos and word order.
+ */
 export function searchFoods(all: LibFood[], query: string, limit = 40): LibFood[] {
-  const q = norm(query)
-  if (!q) return []
-  const words = q.split(' ')
-  const scored: { f: LibFood; s: number }[] = []
-  for (const f of all) {
-    const n = norm(f.name)
-    let ok = true
-    let s = 0
-    for (const w of words) {
-      const i = n.indexOf(w)
-      if (i < 0) {
-        // allow simple plurals: "eggs" → "egg"
-        const j = w.endsWith('s') ? n.indexOf(w.slice(0, -1)) : -1
-        if (j < 0) {
-          ok = false
-          break
-        }
-        s += j + 5
-      } else {
-        s += i
-        if (i === 0 || n[i - 1] === ' ') s -= 3
-      }
-    }
-    if (!ok) continue
-    s += n.length / 12
-    if (f.featured) s -= 25
-    if (f.custom) s -= 30
-    if (/\braw\b|\bcooked\b|\broasted\b|\bboiled\b|\bgrilled\b/.test(n)) s -= 2
-    if (/dehydrated|freeze dried|industrial|frozen, unprepared|imitation/.test(n)) s += 6
-    scored.push({ f, s })
-  }
-  return scored.sort((a, b) => a.s - b.s).slice(0, limit).map((x) => x.f)
+  return fuzzySearch(all, query, limit, { phrases: false })
 }

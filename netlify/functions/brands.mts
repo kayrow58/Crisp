@@ -148,13 +148,24 @@ function dedupe(list: BrandFood[]): BrandFood[] {
   })
 }
 
-/** Products whose brand or name contains every typed word come first. */
+// Household-name US grocery brands rank first (USDA's list includes thousands of small/regional labels).
+const BIG_US_BRANDS = new Set(
+  `365 by whole foods|a.1.|activia|alexia|almond breeze|amy's|annie's|applegate|aquafina|arnold|athenos|banza|barilla|belgioioso|ben & jerry's|ben's original|bertolli|best foods|betty crocker|birds eye|bisquick|blue bell|blue diamond|boar's head|bob's red mill|bodyarmor|bolthouse farms|borden|boursin|breakstone's|breyers|bubly|bumble bee|bush's|butterball|cabot|califia|campbell's|carolina|celsius|cheetos|cheez-it|chi-chi's|chicken of the sea|chips ahoy|chiquita|chobani|clif|coca-cola|coffee mate|coffee-mate|country crock|crisco|cuties|daisy|dannon|danone|darigold|dasani|dave's killer bread|de cecco|dean's|del monte|digiorno|dole|domino|doritos|driscoll's|duke's|duncan hines|dunkin|earth balance|eggland's best|eggo|fage|fairlife|florida's natural|folgers|foster farms|frank's redhot|french's|friendly farms|fritos|galbani|gatorade|general mills|ghirardelli|gold medal|goldfish|good & gather|good culture|goya|great value|green giant|guerrero|h-e-b|haagen-dazs|halo top|halos|healthy choice|heinz|hellmann's|herdez|hershey's|hidden valley|hillshire farm|hood|horizon organic|hormel|hot pockets|huy fong|i can't believe it's not butter|idahoan|international delight|jennie-o|jif|jimmy dean|johnsonville|justin's|kashi|keebler|kellogg's|ken's|kerrygold|kikkoman|kind|king arthur|king's hawaiian|kirkland|kirkland signature|kit kat|knorr|knudsen|kodiak|kraft|kroger|krusteaz|la banderita|lacroix|lactaid|land o lakes|land o'lakes|lawry's|lay's|lea & perrins|lean cuisine|light + fit|lipton|m&m's|mahatma|marie callender's|market pantry|maruchan|marzetti|maxwell house|mccormick|meijer|member's mark|minute|minute maid|mission|monster|morton|mott's|muscle milk|nabisco|naked|nature valley|nature's own|near east|nestle|newman's own|nissin|nutella|oatly|ocean spray|oikos|old el paso|old london|optimum nutrition|ore-ida|oreo|organic valley|oroweat|ortega|oscar mayer|pace|pam|pearl milling|pepperidge farm|pepsi|perdue|pete and gerry's|peter pan|philadelphia|pillsbury|polly-o|pompeian|post|powerade|prairie farm|prego|premier protein|president|primal kitchen|pringles|progresso|publix|quaker|quest|ragu|rao's|ratio|red baron|red bull|reese's|rice-a-roni|ritz|ronzoni|ruffles|rxbar|sabra|sara lee|sargento|siete|siggi's|signature select|silk|simple truth|simply|skippy|smartwater|smithfield|smucker's|snickers|splenda|sprite|starbucks|starkist|stonyfield|stouffer's|stove top|stubb's|success|sun-maid|swanson|sweet baby ray's|tabasco|talenti|thomas'|tillamook|top ramen|tostitos|totino's|trader joe's|triscuit|tropicana|truvia|two good|tyson|uncle ben's|v8|velveeta|vital farms|vitaminwater|wegmans|welch's|wesson|wheat thins|whole foods market|wish-bone|wonder|wonderful|yoplait|zatarain's`.split('|'),
+)
+const bigBrand = (brand: string) => {
+  const b = brand.toLowerCase()
+  if (!b) return false
+  for (const known of BIG_US_BRANDS) if (b === known || b.startsWith(known + ' ') || (known.length > 4 && b.includes(known))) return true
+  return false
+}
+
+/** Every typed word present first, then household-name US brands, then USDA label data over Open Food Facts. */
 function rank(list: BrandFood[], q: string): BrandFood[] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean)
   const score = (f: BrandFood) => {
     const hay = `${f.brand} ${f.name}`.toLowerCase()
     const hits = words.filter((w) => hay.includes(w.replace(/s$/, ''))).length
-    return hits * 10 - hay.length / 40 + (f.units.length > 2 ? 1 : 0)
+    return hits * 10 + (bigBrand(f.brand) ? 8 : 0) + (f.id.startsWith('b:fdc:') ? 2 : 0) - hay.length / 40 + (f.units.length > 2 ? 1 : 0)
   }
   return list
     .map((f, i) => ({ f, s: score(f) - i / 100 }))
@@ -179,7 +190,10 @@ export default handler(async (req, url) => {
   const hit = (await cache.get(key, { type: 'json' }).catch(() => null)) as { at: number; foods: BrandFood[] } | null
   if (hit && Date.now() - hit.at < CACHE_DAYS * 864e5) return json({ foods: hit.foods, cached: true })
 
-  const [fdc, off] = await Promise.allSettled([withTimeout((s) => searchFdc(q, s), 6000), withTimeout((s) => searchOff(q, s), 6000)])
+  // USDA first (US label data). Open Food Facts only fills in when USDA has little or fails.
+  const [fdc] = await Promise.allSettled([withTimeout((s) => searchFdc(q, s), 6000)])
+  const needOff = fdc.status === 'rejected' || fdc.value.length < 8
+  const [off] = needOff ? await Promise.allSettled([withTimeout((s) => searchOff(q, s), 6000)]) : [{ status: 'fulfilled', value: [] } as PromiseFulfilledResult<BrandFood[]>]
   if (fdc.status === 'rejected') console.warn('brands: USDA search failed', String(fdc.reason))
   if (off.status === 'rejected') console.warn('brands: Open Food Facts search failed', String(off.reason))
   if (fdc.status === 'rejected' && off.status === 'rejected') throw new HttpError(503, 'brands_unavailable', "Store brands couldn't load right now. Try again in a bit.")

@@ -1,17 +1,20 @@
 // "Type what you ate" — write everything in one go; Crisp matches each food to the catalog,
 // you check the matches, then add them all at once.
-import { useMemo, useState } from 'react'
-import { CheckCircle, Circle, Lightning, Minus, Plus } from '@phosphor-icons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle, Circle, Lightning, Microphone, Minus, Plus, Stop } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Note, Shimmer } from '../components/ui'
-import { ChipRow, MealBubble } from '../components/Pickers'
+import { Dropdown, MealBubble, unitOptions } from '../components/Pickers'
+import { addToTray, trayActive } from '../lib/tray'
+import { listen, voiceSupported } from '../lib/voice'
 import { macrosFor, type LibFood } from '../lib/foods'
 import { matchText, fitUnit, type ParsedItem } from '../lib/parse'
 import { addEntry } from '../lib/logging'
 import { coversQuery, hasUnknownWord, rememberBrand, searchBrands } from '../lib/brands'
-import { closeAllSheets, openSheet, toast } from '../lib/ui'
+import { closeAllSheets, closeSheet, openSheet, toast } from '../lib/ui'
 import { fmt, r0 } from '../lib/format'
 import { mealLabel } from '../lib/meals'
+import { track } from '../lib/store'
 import { useLibrary, QuickAddSheet } from './Log'
 import type { Meal } from '../../shared/types'
 
@@ -33,9 +36,42 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const [lines, setLines] = useState<Line[] | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   const { all, loading, err } = useLibrary()
+  const toList = trayActive() // opened from the Log sheet: matches go to its running list
+  const [listening, setListening] = useState(false)
+  const [voiceErr, setVoiceErr] = useState('')
+  const stopRef = useRef<(() => void) | null>(null)
+  const before = useRef('')
+  const heardRef = useRef('')
+  useEffect(() => () => stopRef.current?.(), [])
 
-  const find = () => {
-    const matched = matchText(all, text)
+  const toggleVoice = () => {
+    if (listening) {
+      stopRef.current?.()
+      return
+    }
+    setVoiceErr('')
+    setLines(null)
+    before.current = text.trim() ? `${text.trim().replace(/,$/, '')}, ` : ''
+    heardRef.current = ''
+    setListening(true)
+    stopRef.current = listen({
+      onText: (heard) => {
+        heardRef.current = heard
+        setText(before.current + heard)
+      },
+      onEnd: () => {
+        setListening(false)
+        stopRef.current = null
+        // Done talking: find the foods right away.
+        if (heardRef.current.trim()) setTimeout(() => findRef.current(), 50)
+      },
+      onError: setVoiceErr,
+    })
+  }
+
+  const findRef = useRef<() => void>(() => undefined)
+  const find = (input = textRef.current) => {
+    const matched = matchText(all, input)
     setLines(
       matched.map((m, i) => ({
         key: i,
@@ -49,6 +85,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
       })),
     )
     setOpen(null)
+    track('typed_meal_matched', { lines: matched.length, voice: !!heardRef.current })
     // Brand names the built-in list doesn't know ("fairlife milk", "chobani") → look them up in store brands.
     matched.forEach((m, i) => {
       if (!(!m.best || hasUnknownWord(all, m.item.query))) return
@@ -79,6 +116,10 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
     })
   }
 
+  const textRef = useRef(text)
+  textRef.current = text
+  findRef.current = () => find()
+
   const update = (key: number, patch: Partial<Line>) => setLines((ls) => ls!.map((l) => (l.key === key ? { ...l, ...patch } : l)))
   const chosen = (lines ?? []).filter((l) => l.include && l.food)
   const total = useMemo(() => chosen.reduce((s, l) => s + macrosFor(l.food!, l.unitIndex, l.qty).cal, 0), [chosen])
@@ -87,30 +128,46 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
     for (const l of chosen) {
       rememberBrand(l.food!)
       const m = macrosFor(l.food!, l.unitIndex, l.qty)
-      addEntry(date, { foodId: l.food!.id, name: l.food!.name, meal, qty: l.qty, unit: l.food!.units[l.unitIndex].label, ...m, p: m.p, c: m.c, f: m.f }, 'typed', { silent: true })
+      const item = { foodId: l.food!.id, name: l.food!.name, qty: l.qty, unit: l.food!.units[l.unitIndex].label, cal: m.cal, p: m.p, c: m.c, f: m.f }
+      if (toList) addToTray({ ...item, food: l.food! })
+      else addEntry(date, { ...item, meal }, heardRef.current ? 'voice' : 'typed', { silent: true })
+    }
+    if (toList) {
+      toast(`${chosen.length} food${chosen.length === 1 ? '' : 's'} added to the list`)
+      closeSheet()
+      return
     }
     toast(`Added ${chosen.length} food${chosen.length === 1 ? '' : 's'} to ${mealLabel(meal)}`)
     closeAllSheets()
   }
 
   return (
-    <Sheet tall title="Type what you ate" dirty={!!text.trim() && !lines}>
-      <MealBubble value={meal} onChange={setMeal} />
-      <textarea
-        className="input typeit-text"
-        rows={4}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value)
-          if (lines) setLines(null)
-        }}
-        placeholder={'2 eggs, about half an avocado, pb toast\nMonterey Jack cheese 60g, coffee w/ milk'}
-        aria-label="What did you eat?"
-        autoFocus
-      />
-      <p className="muted small">Separate foods with commas or new lines. Amounts like “2”, “1 cup”, “6 oz” or “half” help Crisp get it right.</p>
-      {!lines && (
-        <Button onClick={find} disabled={!text.trim() || loading}>
+    <Sheet tall title="Type or say it" dirty={!!text.trim() && !lines}>
+      {!toList && <MealBubble value={meal} onChange={setMeal} />}
+      <div className={`typeit-box${listening ? ' typeit-box--live' : ''}`}>
+        <textarea
+          className="input typeit-text"
+          rows={4}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value)
+            if (lines) setLines(null)
+          }}
+          placeholder={listening ? 'Listening… say what you ate' : '2 eggs, about half an avocado, pb toast\nMonterey Jack cheese 60g, coffee w/ milk'}
+          aria-label="What did you eat?"
+          readOnly={listening}
+        />
+      </div>
+      {voiceSupported() && (
+        <button className={`mic-btn pressable${listening ? ' mic-btn--on' : ''}`} onClick={toggleVoice} aria-pressed={listening} aria-label={listening ? 'Stop listening' : 'Say what you ate'}>
+          <span className="mic-icon">{listening ? <Stop size={22} weight="fill" /> : <Microphone size={24} weight="fill" />}</span>
+          <span>{listening ? 'Listening… tap when done' : 'Tap and say what you ate'}</span>
+        </button>
+      )}
+      {voiceErr && <Note tone="error">{voiceErr}</Note>}
+      <p className="muted small">Separate foods with commas, new lines or “and”. Amounts like “2”, “1 cup”, “6 oz”, “half” or “(45 calories)” help Crisp get it right.</p>
+      {!lines && !listening && (
+        <Button onClick={() => find()} disabled={!text.trim() || loading}>
           {loading ? 'Loading foods…' : 'Find my foods'}
         </Button>
       )}
@@ -131,7 +188,8 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
             ))}
           </div>
           <Button onClick={addAll} disabled={!chosen.length} className="sheet-cta">
-            Add {chosen.length} food{chosen.length === 1 ? '' : 's'} · {fmt(r0(total))} cal
+            Add {chosen.length} food{chosen.length === 1 ? '' : 's'}
+            {toList ? ' to list' : ''} · {fmt(r0(total))} cal
           </Button>
         </>
       )}
@@ -198,11 +256,11 @@ function LineRow({
             </button>
           </div>
           {food.units.length > 1 && (
-            <ChipRow
+            <Dropdown
               label="Portion size"
               value={unitIndex}
               onChange={(i) => onChange({ unitIndex: i, qty: food.units[i].label === 'g' ? Math.round((unit.grams ?? 100) * qty) : food.units[i].label === 'oz' ? Math.round(((unit.grams ?? 100) * qty) / 28.35) : 1 })}
-              options={food.units.map((u, i) => ({ value: i, label: u.label === 'g' ? 'grams' : u.label === 'oz' ? 'ounces' : u.label, sub: u.grams && u.label !== 'g' && u.label !== 'oz' ? `${fmt(u.grams)} g` : undefined }))}
+              options={unitOptions(food.units)}
             />
           )}
           {line.alternatives.length > 0 && (

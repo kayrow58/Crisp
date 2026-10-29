@@ -12,6 +12,7 @@ import {
   type DayDoc,
   type DayIndex,
   type FoodTemplate,
+  type SavedMeal,
   type ListDoc,
   type Profile,
   type WeightEntry,
@@ -115,11 +116,11 @@ export function updateDay(date: string, fn: (d: DayDoc) => DayDoc) {
   if (next.foods.length === 0 && has) setDoc('dayindex', { dates: idx.dates.filter((d) => d !== date) })
 }
 
-export function list<T>(key: 'weights' | 'favorites' | 'recents'): ListDoc<T> {
+export function list<T>(key: 'weights' | 'favorites' | 'recents' | 'meals'): ListDoc<T> {
   return getDoc<ListDoc<T>>(key) ?? { items: [], deleted: [] }
 }
 
-export function useList<T>(key: 'weights' | 'favorites' | 'recents'): T[] {
+export function useList<T>(key: 'weights' | 'favorites' | 'recents' | 'meals'): T[] {
   const d = useStore((s) => s.docs[key]?.data as ListDoc<T> | undefined)
   return d?.items ?? EMPTY
 }
@@ -157,12 +158,23 @@ export function removeTemplate(key: 'recents' | 'favorites', templateKey: string
   setDoc(key, { items: cur.items.filter((x) => x.key !== templateKey), deleted: [...cur.deleted, templateKey].slice(-200) })
 }
 
+// Saved meals
+export function saveMeal(m: SavedMeal) {
+  const cur = list<SavedMeal>('meals')
+  setDoc('meals', { items: [m, ...cur.items.filter((x) => x.key !== m.key)].slice(0, 100), deleted: cur.deleted.filter((d) => d !== m.key) })
+}
+export function deleteMeal(key: string) {
+  const cur = list<SavedMeal>('meals')
+  setDoc('meals', { items: cur.items.filter((x) => x.key !== key), deleted: [...cur.deleted, key].slice(-200) })
+}
+
 // ---------- merging ----------
 function mergeFor(key: string, local: unknown, remote: unknown): unknown {
   if (key.startsWith('days/')) return mergeDay(local as DayDoc, remote as DayDoc | null)
   if (key === 'weights') return mergeList(local as ListDoc<WeightEntry>, remote as ListDoc<WeightEntry> | null)
   if (key === 'favorites') return mergeTemplates(local as ListDoc<FoodTemplate>, remote as ListDoc<FoodTemplate> | null, 50)
   if (key === 'recents') return mergeTemplates(local as ListDoc<FoodTemplate>, remote as ListDoc<FoodTemplate> | null, 30)
+  if (key === 'meals') return mergeTemplates(local as never, remote as never, 100)
   if (key === 'dayindex') {
     // Re-check dates we know locally so a date removed here isn't brought back.
     const merged = mergeIndex(local as DayIndex, remote as DayIndex | null)

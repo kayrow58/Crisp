@@ -8,7 +8,7 @@ A fast, neon-on-black macro tracker for iPhone, built as a Progressive Web App (
 ## What's built
 
 All of version 1 is in the code: accounts with invite code, optional Face ID (passkeys), onboarding with
-maintenance-calorie math, the built-in USDA food library (~8,200 foods), logging (search, portions, Quick add,
+maintenance-calorie math, the built-in USDA food library (~13,700 foods: everyday generic foods first, plus store brands online), logging (search, portions, Quick add,
 shared custom foods, recents, favorites, swipe & press-and-hold actions, Undo), Home (streak flame, week strip,
 calorie + macro bars or rings), Fitness (steps, workouts, Today | History, Apple Fitness Shortcut endpoint),
 Weight (graph, estimate, milestones), Settings, the 8 PM streak reminder, offline sync, and the Admin dashboard.
@@ -83,11 +83,11 @@ npm run dev              # local preview — Home Screen gate is off; sign-in ne
 npm test                 # calculation, streak, date and merge unit tests
 npm run test:functions   # Netlify Functions against a local Blobs server (no Identity locally)
 npm run typecheck        # app + functions
-npm run build            # builds public/foods.json from USDA SR28, then the app
+npm run build            # builds public/foods.json from USDA FNDDS + SR28, then the app
 ```
 
 - Front end: React + TypeScript + Vite + `vite-plugin-pwa` (`src/`). Shared math/types: `shared/`.
 - Server: Netlify Functions v2 in `netlify/functions/` (routes under `/api/*`), helpers in `netlify/lib/`, data in Netlify Blobs.
 - Sessions: Netlify Identity checks passwords; Crisp issues its own signed 30-day token (`SESSION_SECRET`) so passkey sign-in works too.
-- Food data: `scripts/build-foods.mjs` turns USDA SR Legacy (public domain, via the `fda-nutrient-database` package) into `public/foods.json`; common foods are boosted via `scripts/featured-foods.json`.
+- Food data: `scripts/build-foods.mjs` merges USDA **FNDDS 2019–2020** survey foods (~5,500 everyday generic foods with real servings, condensed in `scripts/data/fndds.json` by `scripts/prepare-fndds.mjs`) and USDA **SR Legacy** (via the `fda-nutrient-database` package) into `public/foods.json`. Search ranks generic foods first, then detailed foods, then brands/restaurants. Store brands come from USDA Branded Foods (+ Open Food Facts) through `/api/brands`.
 - Design tokens: `src/theme/tokens.css` (matches `docs/DESIGN.md`).

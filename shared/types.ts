@@ -121,6 +121,14 @@ export interface FoodTemplate {
   at: string
 }
 
+/** A saved meal: a named group of foods logged as one item (key 'meals'). */
+export interface SavedMeal {
+  key: string
+  name: string
+  items: Omit<FoodTemplate, 'key' | 'at'>[]
+  at: string
+}
+
 export interface DayIndex {
   /** Dates (YYYY-MM-DD) with at least one food logged */
   dates: string[]

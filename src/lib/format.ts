@@ -55,3 +55,21 @@ export const prefersReducedMotion = () => {
     return false
   }
 }
+
+/** "8 AM" for a logged time. */
+export function hourLabel(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const h = d.getHours()
+  return `${((h + 11) % 12) + 1} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'AM' : 'PM'}` }))
+
+/** "1 serving", "2 × 1 cup", "150 g", "6 oz" — reads naturally whatever the unit looks like. */
+export function amountLabel(qty: number, unit: string): string {
+  const q = fmt(qty, 2)
+  if (unit === 'g') return `${q} g`
+  if (/^[\d.½¼¾⅓⅔]/.test(unit)) return qty === 1 ? unit : `${q} × ${unit}`
+  return `${q} ${unit}`
+}

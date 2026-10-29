@@ -86,3 +86,12 @@ describe('free typing (abbreviations, shorthand, phrases)', () => {
     expect(splitFoods('coffee w/ milk, 2 eggs')).toEqual(['coffee with milk', '2 eggs'])
   })
 })
+
+describe('calorie notes and amounts', () => {
+  it('reads "1 toast (45 calories)"', () => {
+    expect(parseItem('1 toast (45 calories)')).toMatchObject({ qty: 1, query: 'toast', cal: 45 })
+  })
+  it('keeps "half and half" together in splitting', () => {
+    expect(splitFoods('a splash of half and half')).toEqual(['a splash of half and half'])
+  })
+})

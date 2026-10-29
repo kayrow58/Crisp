@@ -16,6 +16,8 @@ export interface ParsedItem {
   query: string
   /** false when no amount was typed ("coffee") */
   explicit?: boolean
+  /** calories the person wrote ("toast (45 calories)") — the amount is set to match */
+  cal?: number
 }
 
 const WORD_NUM: Record<string, number> = {
@@ -125,8 +127,16 @@ export function splitFoods(text: string): string[] {
   return parts
 }
 
+const CAL_NOTE = /\(?\s*(\d+(?:\.\d+)?)\s*(?:calories|calorie|cals?|kcals?)\s*\)?/
+
 export function parseItem(raw: string): ParsedItem {
-  let s = normalize(raw).trim()
+  const calNote = raw.toLowerCase().match(CAL_NOTE)
+  const withCal = (p: ParsedItem): ParsedItem => (calNote ? { ...p, cal: Number(calNote[1]) } : p)
+  let s = normalize(calNote ? raw.toLowerCase().replace(CAL_NOTE, ' ') : raw).trim()
+  return withCal(parseCore(raw, s))
+}
+
+function parseCore(raw: string, s: string): ParsedItem {
   for (let i = 0; i < 4; i++) for (const re of FILLER) s = s.replace(re, '')
   let m = s.match(LEAD_X)
   if (m) return { raw, qty: Number(m[1]), unit: null, query: clean(m[2]), explicit: true }
@@ -270,8 +280,12 @@ export function fitUnit(food: LibFood, item: ParsedItem): Match {
   let unit = item.unit
   let qty = item.qty
   switch (unit) {
+    case 'ml': {
+      const floz = find((l) => /^1 fl oz$/.test(l))
+      if (floz >= 0) return { food, unitIndex: floz, qty: round(qty / 29.57) }
+      return { food, unitIndex: g, qty: round(qty) }
+    }
     case 'g':
-    case 'ml':
       return { food, unitIndex: g, qty: round(qty) }
     case 'kg':
     case 'l':
@@ -291,7 +305,8 @@ export function fitUnit(food: LibFood, item: ParsedItem): Match {
   const unitWord = unit === 'bowl' || unit === 'glass' ? 'cup' : unit === 'strip' ? 'slice' : unit === 'can' || unit === 'bottle' ? unit : unit
   const typedFor: ParsedItem = { ...item, unit, qty }
   if (unitWord && unitWord !== 'piece' && !['large', 'medium', 'small', 'extra large'].includes(unitWord)) {
-    const i = find((l) => labelHas(l, unitWord))
+    const mid = find((l) => labelHas(l, unitWord) && /\b(medium|regular)\b/.test(l))
+    const i = mid >= 0 ? mid : find((l) => labelHas(l, unitWord))
     if (i >= 0) return { food, unitIndex: i, qty: round(qty / labelQty(units[i].label)) }
   }
   // Calorie-dense snacks with no amount typed ("almonds", "chips"): a 1 oz handful, not a cupful.
@@ -301,7 +316,13 @@ export function fitUnit(food: LibFood, item: ParsedItem): Match {
   const countable = EACH_GRAMS.find(([re]) => re.test(item.query))
   const size = unitWord === 'large' ? 'large' : unitWord === 'small' ? 'small' : unitWord === 'extra large' ? 'extra large' : 'medium'
   const sized = find((l) => new RegExp(`\\b${size}\\b`).test(l) && !/\bcup|tbsp|oz\b/.test(l))
-  const counted = find((l) => /\b(large|medium|small|each|whole|fruit|breast|slice|piece|egg|patty|link|bar|item|stalk|wing|drumstick|thigh|leg)\b/.test(l) && !/\bcup|tbsp|\boz\b/.test(l))
+  const sliced = !countable || /slice/.test(countable[2])
+  const counted = find(
+    (l) =>
+      new RegExp(`\\b(large|medium|small|each|whole|fruit|breast|${sliced ? 'slice|' : ''}piece|egg|patty|link|bar|item|stalk|wing|drumstick|thigh|leg)\\b`).test(l) &&
+      !/\bcup|tbsp|\boz\b/.test(l) &&
+      !(countable && /\bslice\b/.test(l) && !sliced),
+  )
   if (!unitWord || unitWord === 'piece' || ['large', 'medium', 'small', 'extra large'].includes(unitWord)) {
     if (sized >= 0) return per(sized)
     // No size typed and the catalog only lists large/small: use a typical medium one instead.
@@ -317,6 +338,12 @@ export function fitUnit(food: LibFood, item: ParsedItem): Match {
     return withEach(label === countable[2] && factor !== 1 ? `${unitWord} ${label}` : label, Math.round(countable[1] * factor), qty)
   }
   if (unitWord === 'cup' || unitWord === 'tbsp' || unitWord === 'tsp' || unitWord === 'fl oz') {
+    // drinks & creamers listed per fl oz: 2 tbsp = 1 fl oz
+    const floz = find((l) => /^1 fl oz$/.test(l))
+    if (floz >= 0 && unitWord !== 'cup') {
+      const factor = unitWord === 'tbsp' ? 0.5 : unitWord === 'fl oz' ? 1 : 1 / 6
+      return { food, unitIndex: floz, qty: round(qty * factor) }
+    }
     // convert via a cup unit if there is one
     const cup = find((l) => labelHas(l, 'cup'))
     if (cup >= 0) {
@@ -353,7 +380,14 @@ export function matchItem(all: LibFood[], item: ParsedItem): { best: Match | nul
     const withUnit = results.slice(1, 4).find((f) => f.units.some((x) => labelHas(x.label, u)))
     if (withUnit) pick = withUnit
   }
-  return { best: fitUnit(pick, item), alternatives: results.filter((f) => f !== pick).slice(0, 5) }
+  return { best: withCalories(fitUnit(pick, item), item), alternatives: results.filter((f) => f !== pick).slice(0, 5) }
+}
+
+/** "toast (45 calories)": keep the matched food and set the amount so it comes to the calories written. */
+export function withCalories(m: Match, item: ParsedItem): Match {
+  if (!item.cal) return m
+  const per = macrosFor(m.food, m.unitIndex, 1).cal
+  return per > 0 ? { ...m, qty: round(item.cal / per) } : m
 }
 
 export const matchCalories = (m: Match) => macrosFor(m.food, m.unitIndex, m.qty).cal
@@ -375,7 +409,8 @@ export function matchText(all: LibFood[], text: string): MatchedLine[] {
     if (spread) item = { ...item, query: `${spread[2] === 'sandwich' ? 'bread' : spread[2]} with ${spread[1]}`, unit: spread[2] === 'sandwich' ? null : item.unit, qty: spread[2] === 'sandwich' ? item.qty * 2 : item.qty }
     if (item.query === 'pb&j' || item.query === 'pbj' || item.query === 'pb j') item = { ...item, query: 'bread with peanut butter and jelly', qty: item.qty * 2 }
     const whole = matchItem(all, item)
-    const parts = item.query.split(/\s+(?:with|and|&|on|plus|topped with)\s+/).filter(Boolean)
+    const compound = /half (and|&) half|mac(aroni)? (and|&) cheese|salt (and|&) pepper|sweet (and|&) sour|peanut butter (and|&) jelly|bread (and|&) butter pickle|cookies (and|&) cream|rice (and|&) beans|chicken (and|&) (rice|dumplings)|biscuits (and|&) gravy|fish (and|&) chips|spaghetti (and|&) meatballs/.test(item.query)
+    const parts = compound ? [item.query] : item.query.split(/\s+(?:with|and|&|on|plus|topped with)\s+/).filter(Boolean)
     if (parts.length > 1) {
       // Prefer splitting when each part matches well on its own (e.g. "toast with butter").
       const subs = parts.map((q, i) => {
@@ -390,7 +425,7 @@ export function matchText(all: LibFood[], text: string): MatchedLine[] {
             : splash
               ? { qty: 2, unit: 'tbsp', explicit: true }
               : { qty: 1, unit: null, explicit: false }
-        const sub: ParsedItem = i === 0 ? { raw: q, qty: item.qty, unit: item.unit, query: q, explicit: item.explicit } : { raw: q, query: q, ...top }
+        const sub: ParsedItem = i === 0 ? { raw: q, qty: item.qty, unit: item.unit, query: q, explicit: item.explicit, cal: item.cal } : { raw: q, query: q, ...top }
         return { item: sub, ...matchItem(all, sub) }
       })
       const wholeName = whole.best?.food.name.toLowerCase() ?? ''

@@ -113,12 +113,15 @@ const PHRASES: [RegExp, string][] = [
   [/\bshrimp\b/, 'crustaceans shrimp cooked'],
   [/\btilapia\b/, 'fish tilapia cooked dry heat'],
   [/\bcauliflower rice\b|\briced cauliflower\b/, 'cauliflower raw'],
+  [/\b(uncooked|dry|raw) brown rice\b|\bbrown rice,? (uncooked|dry|raw)\b/, 'rice brown long grain uncooked dry'],
+  [/\b(uncooked|dry|raw) (white )?rice\b|\b(white )?rice,? (uncooked|dry|raw)\b/, 'rice white long grain regular uncooked dry enriched'],
   [/^(white )?rice$/, 'rice white long grain regular enriched cooked'],
   [/\bbrown rice\b/, 'rice brown long grain cooked'],
   [/\b(oatmeal|porridge)\b/, 'oats regular quick unenriched cooked water'],
   [/^oats$/, 'oats regular quick not fortified dry'],
   [/\b(protein shake|protein powder|whey( protein)?)\b/, 'protein powder whey'],
-  [/^(white )?bread$|\bwhite toast\b|^toast$/, 'bread white commercially prepared toasted'],
+  [/^(white )?bread$/, 'bread white'],
+  [/\bwhite toast\b|^toast$/, 'bread white toasted'],
   [/\b(wheat|whole wheat) (bread|toast)\b/, 'bread whole wheat commercially prepared'],
   [/^(pasta|spaghetti|noodles)$/, 'pasta cooked enriched without added salt'],
   [/^potato(es)?$|\bbaked potato\b/, 'potatoes baked flesh skin without salt'],
@@ -129,6 +132,8 @@ const PHRASES: [RegExp, string][] = [
   [/\b(skim|nonfat|fat free) milk\b/, 'milk nonfat fluid'],
   [/\balmond milk\b/, 'almond milk unsweetened'],
   [/\bhalf (and|&) half\b/, 'cream fluid half and half'],
+  [/\birish cream\b|\b(flavored|french vanilla|hazelnut|vanilla) creamer\b/, 'coffee creamer liquid flavored'],
+  [/^creamer$|\bcoffee creamer\b/, 'coffee creamer liquid'],
   [/^cheese$/, 'cheese cheddar'],
   [/^(beer)$/, 'beer regular'],
   [/\blight beer\b/, 'beer light'],
@@ -160,7 +165,7 @@ const PHRASES: [RegExp, string][] = [
   [/\btortillas?\b/, 'tortillas ready to bake fry flour'],
   [/\bcorn tortillas?\b/, 'tortillas ready to bake fry corn'],
   [/\bhoney\b/, 'honey'],
-  [/\bbutter\b(?! milk)/, 'butter salted'],
+  [/^(salted )?butter$/, 'butter'],
 ]
 
 const STOP = new Set(['of', 'the', 'a', 'an', 'some', 'my', 'and', 'with', 'in', 'on', 'for', 'to', 'piece', 'pieces', 'fresh', 'homemade', 'little', 'bit'])
@@ -184,12 +189,12 @@ const words = (s: string) =>
     .filter(Boolean)
 
 /** Expand abbreviations and catalog phrasing for a typed food description. */
-export function expandQuery(q: string): string {
+export function expandQuery(q: string, phrases = true): string {
   let s = q.toLowerCase().trim()
   s = words(s)
     .map((w) => ABBREV[w] ?? w)
     .join(' ')
-  for (const [re, to] of PHRASES) {
+  if (phrases) for (const [re, to] of PHRASES) {
     if (re.test(s)) {
       s = s.replace(re, to)
       break
@@ -198,11 +203,28 @@ export function expandQuery(q: string): string {
   return s
 }
 
+// Words used in everyday (generic) food names — typing these isn't typing a brand ("rice" vs "CREAM OF RICE").
+const genericVocab = new WeakMap<LibFood[], Set<string>>()
+function genericWords(all: LibFood[]): Set<string> {
+  let v = genericVocab.get(all)
+  if (!v) {
+    v = new Set()
+    for (const f of all) if (f.kind === 1) for (const w of words(f.name)) v.add(singular(w))
+    genericVocab.set(all, v)
+  }
+  return v
+}
+
+const DISH =
+  /\b(salad|sandwich|soup|stew|stewed|casserole|pudding|split|cake|pie|deviled|creamed|benedict|burrito|taco|tostada|enchilada|pizza|croquette|nectar|loaf|patty sandwich|sushi|roll|omelet|quiche|souffle|fried rice|with [a-z]+ sauce|puerto rican style|mexican style|chinese|lomi|nuggets?|fritter|dumpling|chips)\b/
+
 interface Indexed {
   all: Set<string>
   first: Set<string>
   count: number
   branded: boolean
+  /** words written in capitals in the name (brand names: "KRAFT", "UNCLE BEN'S") */
+  brandWords: Set<string>
 }
 const cache = new WeakMap<LibFood, Indexed>()
 function index(f: LibFood): Indexed {
@@ -212,9 +234,11 @@ function index(f: LibFood): Indexed {
     const toks = words(f.name).map(singular)
     x = {
       all: new Set(toks),
-      first: new Set(words(segs[0]).map(singular)),
+      // "Fish, salmon" / "Beef, ground" / "Cheese, cheddar": a one-word category in front counts with the next part
+      first: new Set(words(segs[0].trim().includes(' ') || segs.length < 2 ? segs[0] : `${segs[0]} ${segs[1]}`).map(singular)),
       count: toks.length,
-      branded: /\b[A-Z][A-Z'&.]{2,}\b/.test(f.name), // e.g. "McDONALD'S", "KRAFT"
+      branded: f.kind === 2 || /\b[A-Z][A-Z'&.]{2,}\b/.test(f.name), // e.g. "McDONALD'S", "KRAFT"
+      brandWords: new Set((f.name.match(/\b[A-Z][A-Za-z'&.]*[A-Z][A-Za-z'&.]*\b/g) ?? []).flatMap((w) => words(w)).map(singular)),
     }
     cache.set(f, x)
   }
@@ -253,14 +277,14 @@ function tokenScore(q: string, set: Set<string>): number {
  * Ranked catalog search that tolerates extra words, word order, plurals, abbreviations and typos.
  * Foods that cover more of what was typed rank first; generic foods beat brand-name ones.
  */
-export function fuzzySearch(all: LibFood[], query: string, limit = 8): LibFood[] {
-  const expanded = expandQuery(query)
+export function fuzzySearch(all: LibFood[], query: string, limit = 8, opts: { phrases?: boolean } = {}): LibFood[] {
+  const expanded = expandQuery(query, opts.phrases ?? true)
   const qWords = words(expanded)
     .filter((w) => !STOP.has(w))
     .map(singular)
   if (!qWords.length) return []
   const head = qWords[qWords.length - 1]
-  const typedBrand = /[A-Z]{3,}/.test(query)
+  const generic = genericWords(all)
   const scored: { f: LibFood; s: number }[] = []
   for (const f of all) {
     const ix = index(f)
@@ -281,12 +305,17 @@ export function fuzzySearch(all: LibFood[], query: string, limit = 8): LibFood[]
     let s = coverage * 100
     s += firstHits * 6 // "cheese" matching "Cheese, monterey" counts more than matching deep in the name
     if (ix.first.has(head)) s += 6
-    s -= Math.max(0, ix.count - matched) * 1.3 // fewer extra words = more generic
-    if (f.featured) s += 14
+    s -= Math.max(0, ix.count - matched) * 2.4 // fewer extra words = more generic
+    if (f.featured) s += 6
     if (f.custom) s += 22
-    if (ix.branded && !typedBrand) s -= 10
+    const typedBrand = qWords.some((w) => ix.brandWords.has(w) && !generic.has(w))
+    if (f.kind === 1) s += 9 // everyday generic food (FNDDS) first
+    if (ix.branded) s += typedBrand ? 8 : -16
     if (/dehydrated|freeze-dried|industrial|imitation|frozen, unprepared|babyfood|infant|dry mix|refrigerated dough/i.test(f.name)) s -= 12
-    if (/\b(raw|cooked|roasted|boiled|grilled|baked|broiled)\b/i.test(f.name)) s += 1
+    if (/\b(raw|cooked|roasted|boiled|grilled|baked|broiled|whole|plain|regular)\b/i.test(f.name)) s += 3
+    // Mixed dishes ("Egg Benedict", "Salmon salad") only when the dish was typed.
+    const dish = f.name.toLowerCase().match(DISH)
+    if (dish && !qWords.some((w) => dish[0].includes(w))) s -= 9
     scored.push({ f, s })
   }
   return scored

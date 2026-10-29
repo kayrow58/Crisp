@@ -1,6 +1,6 @@
 // Themed pickers (instead of the iPhone's built-in wheel): unit bubbles and the meal bubble.
-import { useState } from 'react'
-import { CaretDown } from '@phosphor-icons/react'
+import { useEffect, useRef, useState } from 'react'
+import { CaretDown, Check } from '@phosphor-icons/react'
 import type { Meal } from '../../shared/types'
 import { useMeals } from '../lib/meals'
 
@@ -62,4 +62,71 @@ export function MealBubble({ value, onChange, prefix = 'Log to' }: { value: Meal
       )}
     </div>
   )
+}
+
+/** Themed dropdown (instead of the iPhone wheel): shows the choice, opens a list right below it. */
+export function Dropdown<T extends string | number>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string; sub?: string }[]
+  value: T
+  onChange: (v: T) => void
+  label: string
+}) {
+  const [open, setOpen] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const current = options.find((o) => o.value === value) ?? options[0]
+  // Open with the current choice in view (e.g. "6:00 PM", not the top of a 24-hour list).
+  useEffect(() => {
+    const list = listRef.current
+    const sel = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (list && sel) list.scrollTop = sel.offsetTop - list.clientHeight / 2 + sel.clientHeight / 2
+  }, [open])
+  return (
+    <div className="dropdown">
+      <span className="dropdown-label">{label}</span>
+      <button className={`dropdown-btn pressable${open ? ' dropdown-btn--open' : ''}`} onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="listbox" aria-label={`${label}: ${current?.label}`}>
+        <span className="dropdown-value">
+          {current?.label}
+          {current?.sub && <span className="dropdown-sub"> · {current.sub}</span>}
+        </span>
+        <CaretDown size={16} weight="bold" className={`meal-caret${open ? ' meal-caret--open' : ''}`} aria-hidden />
+      </button>
+      {open && (
+        <div className="dropdown-list" role="listbox" aria-label={label} ref={listRef}>
+          {options.map((o) => {
+            const on = o.value === value
+            return (
+              <button
+                key={String(o.value)}
+                role="option"
+                aria-selected={on}
+                className={`dropdown-item${on ? ' dropdown-item--on' : ''}`}
+                onClick={() => {
+                  onChange(o.value)
+                  setOpen(false)
+                }}
+              >
+                <span>{o.label}</span>
+                {o.sub && <span className="dropdown-sub">{o.sub}</span>}
+                {on && <Check size={16} weight="bold" className="dropdown-check" aria-hidden />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Unit dropdown for a food: grams, ounces and the food's own servings. */
+export function unitOptions(units: { label: string; grams?: number }[]) {
+  return units.map((u, i) => ({
+    value: i,
+    label: u.label === 'g' ? 'grams' : u.label === 'oz' ? 'ounces' : u.label,
+    sub: u.grams && u.label !== 'g' && u.label !== 'oz' ? `${Math.round(u.grams * 10) / 10} g` : undefined,
+  }))
 }
