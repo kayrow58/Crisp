@@ -22,7 +22,7 @@ Status: **Approved** · Source of truth for the build. Design details also live 
 - Targets: Mifflin-St Jeor maintenance; **protein-first** macros (0.8 g/lb goal weight, ~30% fat, carbs = remainder). Fully adjustable.
 - Informational guardrails (never blocking).
 - Two activity modes: **Set my activity level** or **Track my activity** (workouts add 50% of calories burned; steps add formula calories at 100%).
-- Food logging: bundled USDA library (~1,000 common foods), search, portion card, recents, favorites, Quick add, shared custom foods.
+- Food logging: bundled USDA library (~8,200 foods from SR Legacy, with ~115 common foods boosted in search), search, portion card, recents, favorites, Quick add, shared custom foods.
 - Home: streak, week strip, combined calorie + P/C/F card (bars default, rings optional), meals.
 - Fitness tab: Today | History, manual steps/workouts, Apple Fitness sync via shareable Apple Shortcut.
 - Weight tab: entries, line/bar graph with ranges, **estimated weight change** card, milestone pop-ups (15/25/50/75/100%).
@@ -207,15 +207,16 @@ See [`DESIGN.md`](DESIGN.md) for the full token tables, type scale, and componen
 ### Blob stores & keys
 | Store | Key | Contents |
 |---|---|---|
-| users | `{userId}/profile` | first name, email, sex, birth year, height, units, goal, goal weight, activity mode/level, targets (cal, P, C, F; manual override flags), best streak, current streak, fitness sync code, time zone, notification prefs, created |
-| users | `{userId}/days/{YYYY-MM-DD}` | foods [id, foodRef, name, meal, portion, unit, cal, P, C, F, loggedAt]; steps {count, source}; workouts [id, type, minutes, cal, source manual/shortcut] |
-| users | `{userId}/weights` | [{date, weight}] |
-| users | `{userId}/favorites`, `{userId}/recents` | food refs + last portion |
+| profiles | `{userId}` | first name, email, sex, birth year, height, units, goal, goal weight, activity mode/level, targets (cal, P, C, F; manual override flags), best streak, current streak, fitness sync code, time zone, notification prefs, created |
+| userdata | `{userId}/days/{YYYY-MM-DD}` | foods [id, foodRef, name, meal, portion, unit, cal, P, C, F, loggedAt]; steps {count, source}; workouts [id, type, minutes, cal, source manual/shortcut] |
+| userdata | `{userId}/weights` | [{date, weight}] |
+| userdata | `{userId}/favorites`, `{userId}/recents`, `{userId}/dayindex` | food templates (last portion); dates with food logged |
 | foods | `custom/{foodId}` | name, serving size/unit, cal, P, C, F, createdBy (userId + first name), created |
-| passkeys | `{credentialId}` | userId, public key, counter, transports, device name, created |
+| passkeys | `cred/{credentialId}`, `user/{userId}`, `challenge/{id}` | public key, counter, transports, device; a person's credential list; 5-minute challenges |
 | push | `{userId}` | push subscription(s) |
 | events | `{YYYY-MM}/{eventId}` | userId, type, details, time |
-| app | `settings` | inviteCode, lastEventPurgePrompt |
+| app | `settings` | inviteCode, lastPurgePrompt |
+| fitnesscodes | `{code}` | userId (lookup for the Apple Shortcut) |
 
 Writes that two devices could race on (same user's day, recents, profile) use **conditional writes** (ETag) with retry/merge. Custom foods are creator-edit-only, so no cross-user conflicts.
 
@@ -232,13 +233,12 @@ Writes that two devices could race on (same user's day, recents, profile) use **
 ### Netlify Functions
 | Function | Purpose |
 |---|---|
-| `signup` | Validate invite code, create Identity user (autoconfirmed), create profile |
-| `passkey-register-options` / `passkey-register-verify` | Passkey registration (SimpleWebAuthn server) |
-| `passkey-login-options` / `passkey-login-verify` | Passkey sign-in → issue session |
+| `auth` (`/api/auth/*`) | signup (invite code → Identity user, autoconfirmed → profile), login, me, change-password, delete |
+| `passkey` (`/api/passkey/*`) | register-options/verify, login-options/verify, disable (SimpleWebAuthn) |
 | `sync` | Load/save profile, days, weights, favorites, recents (auth required, own data only) |
 | `foods` | List/create/edit/delete shared custom foods (edit/delete creator only) |
 | `fitness` | Receive steps/active workouts from Shortcut; auth by personal sync code |
-| `push-subscribe` | Save/remove push subscription |
+| `push` (`/api/push/*`) | VAPID public key, subscribe, unsubscribe |
 | `events` | Record usage events |
 | `admin` | Dashboard data, change invite code, event purge (ADMIN_EMAILS only; server-enforced) |
 
@@ -257,12 +257,15 @@ Set these in Netlify only — never commit real values (this repo is public).
 | `INVITE_CODE` | Starting invite code (later changed in Admin) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notification keys (generated once) |
 | `PASSKEY_RP_ID`, `PASSKEY_ORIGIN` | The site's Netlify address |
+| `SESSION_SECRET` | Random string used to sign Crisp's 30-day session tokens |
+| `VITE_SHORTCUT_URL` | iCloud link to the shared Apple Shortcut (see `docs/SHORTCUT.md`) |
 
 ---
 
 ## 9. Security
 
 - **Passkeys (WebAuthn):** optional; offered in onboarding and Settings. Challenges created/verified in Netlify Functions with **SimpleWebAuthn**; public keys stored in `passkeys`. Face ID data never leaves the phone. Passkeys sync to a new iPhone through iCloud Keychain. Used **only at sign-in**; session lasts 30 days.
+- **Sessions:** Netlify Identity checks the password (or SimpleWebAuthn checks the passkey); Crisp then issues its own HMAC-signed 30-day token (`SESSION_SECRET`) that every function verifies.
 - **Fallback:** email + password; reset via email link (Safari page).
 - **Lost phone:** no extra controls (30-day expiry + iPhone passcode).
 - **Admin:** button shown only when the signed-in email is in `ADMIN_EMAILS`; every admin function re-checks on the server and refuses everyone else.

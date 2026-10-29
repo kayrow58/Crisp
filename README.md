@@ -2,11 +2,19 @@
 
 A fast, neon-on-black macro tracker for iPhone, built as a Progressive Web App (PWA) on Netlify. For Kay and a few friends — never sold.
 
-- 📋 **Full spec:** [`docs/SPEC.md`](docs/SPEC.md)
-- 🎨 **Design system:** [`docs/DESIGN.md`](docs/DESIGN.md)
-- ✅ **Build plan:** GitHub **Issues → Milestones** (M1–M13). Start with **M1 — Accounts first**.
+- 📋 **Spec:** [`docs/SPEC.md`](docs/SPEC.md) · 🎨 **Design:** [`docs/DESIGN.md`](docs/DESIGN.md) · ⌚ **Apple Fitness Shortcut:** [`docs/SHORTCUT.md`](docs/SHORTCUT.md)
+- ✅ **Build plan:** GitHub **Issues → Milestones** (M1–M13).
 
-> **Current state:** starter project only — theme colors, PWA manifest, placeholder icons, and an app shell with the tab bar. No features yet.
+## What's built
+
+All of version 1 is in the code: accounts with invite code, optional Face ID (passkeys), onboarding with
+maintenance-calorie math, the built-in USDA food library (~8,200 foods), logging (search, portions, Quick add,
+shared custom foods, recents, favorites, swipe & press-and-hold actions, Undo), Home (streak flame, week strip,
+calorie + macro bars or rings), Fitness (steps, workouts, Today | History, Apple Fitness Shortcut endpoint),
+Weight (graph, estimate, milestones), Settings, the 8 PM streak reminder, offline sync, and the Admin dashboard.
+
+What still needs you: the **Netlify setup below**, building the **Apple Shortcut** (`docs/SHORTCUT.md`), and the
+**real-iPhone tests** at the end of each milestone (some things only work on the live site).
 
 ---
 
@@ -16,58 +24,53 @@ You only do this once. Everything happens in your browser.
 
 ### 1. Import this repo
 1. Go to **app.netlify.com** and sign in.
-2. Click **Add new project → Import an existing project**.
-3. Choose **GitHub**, authorize if asked, and pick **kayrow58/Crisp**.
-4. Netlify reads the build settings from `netlify.toml` automatically. You should see:
-   - Build command: `npm run build`
-   - Publish directory: `dist`
-5. Click **Deploy**.
+2. **Add new project → Import an existing project → GitHub** → pick **kayrow58/Crisp**.
+3. Netlify reads the settings from `netlify.toml` (build command `npm run build`, publish directory `dist`). Click **Deploy**.
 
 ### 2. Name the site
-1. Open the new project → **Project configuration → General → Project details → Change project name**.
-2. Pick something like `crisp-kay` → your address becomes **`https://crisp-kay.netlify.app`**.
-3. ⚠️ Pick a name you'll keep. Face ID sign-in (passkeys) is tied to this address; changing it later means everyone sets up Face ID again.
+**Project configuration → General → Project details → Change project name**, e.g. `crisp-kay` →
+`https://crisp-kay.netlify.app`. ⚠️ Pick one you'll keep — Face ID sign-in is tied to this address.
 
 ### 3. Turn on Identity (accounts)
-1. Open the project → **Identity** (or **Project configuration → Identity**) → **Enable Identity**.
-2. **Registration preferences → Invite only.** (Friends sign up through Crisp's own invite-code screen, not Netlify's.)
-3. **Emails → Confirmation email → turn on "Autoconfirm"** (so there's no "confirm your email" step).
+1. **Identity → Enable Identity**. (If Netlify won't let you, stop and tell Claude — see Risks in `docs/SPEC.md`.)
+2. **Registration preferences → Invite only.** Friends join through Crisp's own invite-code screen.
+3. **Emails → Autoconfirm → On** (no "confirm your email" step).
 4. Leave password-recovery emails on.
 
-> If Netlify doesn't let you enable Identity on a new site, stop here and tell Claude — the spec lists this as the first thing to check (see Risks in `docs/SPEC.md`).
-
-### 4. Add environment variables (secrets & settings)
-Go to **Project configuration → Environment variables → Add a variable** and add:
+### 4. Add environment variables
+**Project configuration → Environment variables → Add a variable**, one at a time:
 
 | Key | Value |
 |---|---|
-| `ADMIN_EMAILS` | Your email address (the one you'll sign up with) |
-| `INVITE_CODE` | The code friends type when they sign up, e.g. `CRISP-2026` |
-| `PASSKEY_RP_ID` | Your site's domain, e.g. `crisp-kay.netlify.app` (no `https://`) |
+| `ADMIN_EMAILS` | Your email (the one you'll sign up with) |
+| `INVITE_CODE` | The code friends type to sign up, e.g. `CRISP-2026` (you can change it later in Admin) |
+| `SESSION_SECRET` | A long random string (Claude gave you one) — keeps sign-ins secure |
+| `PASSKEY_RP_ID` | Your domain, e.g. `crisp-kay.netlify.app` (no `https://`) |
 | `PASSKEY_ORIGIN` | Your full address, e.g. `https://crisp-kay.netlify.app` |
+| `VAPID_PUBLIC_KEY` | Push notification key (Claude gave you one) |
+| `VAPID_PRIVATE_KEY` | Push notification key (Claude gave you one) — keep private |
+| `VAPID_SUBJECT` | `mailto:` + your email |
+| `VITE_SHORTCUT_URL` | *(later)* the iCloud link to your Crisp Sync Shortcut |
 
-Push-notification keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) get added later in milestone **M11**; Claude Code will generate them and tell you exactly what to paste.
-
-> 🔒 This repo is **public**. Never put real emails, invite codes, or keys in the code — only in Netlify's environment variables.
+> 🔒 This repo is **public**. Never put real emails, codes, or keys in the code — only here.
 
 ### 5. Redeploy
-**Deploys → Trigger deploy → Deploy project** so the new settings take effect.
+**Deploys → Trigger deploy → Deploy project.** Do this again whenever you change an environment variable.
 
-### 6. Try it on your iPhone
-1. Open your `.netlify.app` address in **Safari** on your iPhone.
-2. Tap **Share ↑ → Add to Home Screen → Add**.
-3. Open **Crisp** from your Home Screen.
+### 6. Install on your iPhone
+Open your `.netlify.app` address in **Safari** → **Share ↑ → Add to Home Screen → Add** → open **Crisp** from the Home Screen → **Create account** with your invite code.
 
 ---
 
-## Things you can only truly test on the live site
+## Test on the live site (real iPhone, opened from the Home Screen)
 
-These won't work on a computer preview — always test them on your iPhone, opened from the Home Screen:
+These can't be tested on a computer:
 
-- Sign-up, sign-in, and password-reset emails (Netlify Identity doesn't run locally)
-- Face ID / passkeys (need the real HTTPS address)
-- Push notifications (need the app installed on the Home Screen, iOS 16.4+)
-- The Apple Fitness Shortcut sync
+- **M1:** create account (with and without the right invite code), sign out, sign in, forgot password (the email link opens in Safari)
+- **M2:** turn on Face ID, sign out, sign in with Face ID; try a second iPhone on the same Apple ID
+- **M8:** the Apple Fitness Shortcut end to end
+- **M11:** the 8 PM streak reminder (turn it on from the Home card or Settings)
+- **M12:** sign in as a friend and confirm there's no Admin row
 
 ---
 
@@ -75,11 +78,15 @@ These won't work on a computer preview — always test them on your iPhone, open
 
 ```bash
 npm install
-npm run dev       # local preview (Home Screen gate is off in dev)
-npm run build     # production build → dist/
+npm run dev              # local preview — Home Screen gate is off; sign-in needs the live site
+npm test                 # calculation, streak, date and merge unit tests
+npm run test:functions   # Netlify Functions against a local Blobs server (no Identity locally)
+npm run typecheck        # app + functions
+npm run build            # builds public/foods.json from USDA SR28, then the app
 ```
 
-- Stack: React + TypeScript + Vite + `vite-plugin-pwa`; Netlify Functions in `netlify/functions/`; Netlify Blobs for data.
-- Follow the milestones in order; each one ends with a real-iPhone test.
-- Design tokens live in `src/theme/tokens.css` and match `docs/DESIGN.md`.
-- Keep all secrets in environment variables (public repo).
+- Front end: React + TypeScript + Vite + `vite-plugin-pwa` (`src/`). Shared math/types: `shared/`.
+- Server: Netlify Functions v2 in `netlify/functions/` (routes under `/api/*`), helpers in `netlify/lib/`, data in Netlify Blobs.
+- Sessions: Netlify Identity checks passwords; Crisp issues its own signed 30-day token (`SESSION_SECRET`) so passkey sign-in works too.
+- Food data: `scripts/build-foods.mjs` turns USDA SR Legacy (public domain, via the `fda-nutrient-database` package) into `public/foods.json`; common foods are boosted via `scripts/featured-foods.json`.
+- Design tokens: `src/theme/tokens.css` (matches `docs/DESIGN.md`).

@@ -1,0 +1,143 @@
+// Types shared by the app (src/) and the Netlify Functions (netlify/functions/).
+
+export type Sex = 'male' | 'female'
+export type Units = 'imperial' | 'metric'
+export type Goal = 'lose' | 'maintain' | 'gain'
+export type ActivityMode = 'level' | 'track'
+export type ActivityLevel = 'sedentary' | 'light' | 'active' | 'very'
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+
+export interface Targets {
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  /** true when the user typed their own numbers instead of using the suggestion */
+  manual: boolean
+}
+
+export interface Profile {
+  id: string
+  firstName: string
+  email: string
+  createdAt: string
+  onboarded: boolean
+  sex?: Sex
+  birthYear?: number
+  heightCm?: number
+  units: Units
+  goal?: Goal
+  startWeightKg?: number
+  goalWeightKg?: number
+  activityMode: ActivityMode
+  activityLevel: ActivityLevel
+  targets?: Targets
+  bestStreak: number
+  milestonesHit: number[]
+  timeZone: string
+  notif: { enabled: boolean; hour: number }
+  /** Personal code the Apple Shortcut sends (server-owned) */
+  fitnessCode?: string
+  /** ISO time of the last Shortcut sync (server-owned) */
+  fitnessLastSync?: string
+  passkeyEnabled?: boolean
+}
+
+export interface FoodEntry {
+  id: string
+  /** 'u:<ndb>' library food · 'c:<id>' custom food · 'q' quick add */
+  foodId: string
+  name: string
+  meal: Meal
+  qty: number
+  unit: string
+  cal: number
+  p: number
+  c: number
+  f: number
+  at: string
+}
+
+export interface Workout {
+  id: string
+  type: string
+  minutes: number
+  cal: number
+  source: 'manual' | 'shortcut'
+  at: string
+}
+
+export interface DayDoc {
+  date: string
+  foods: FoodEntry[]
+  workouts: Workout[]
+  steps: { count: number; source: 'manual' | 'shortcut'; updatedAt: string } | null
+  /** ids of deleted foods/workouts, so merges between two phones don't bring them back */
+  deleted: string[]
+}
+
+export interface WeightEntry {
+  id: string
+  date: string
+  kg: number
+}
+
+export interface ListDoc<T> {
+  items: T[]
+  deleted: string[]
+}
+
+/** A saved food "template" used by Recents and Favorites */
+export interface FoodTemplate {
+  key: string
+  foodId: string
+  name: string
+  qty: number
+  unit: string
+  cal: number
+  p: number
+  c: number
+  f: number
+  at: string
+}
+
+export interface DayIndex {
+  /** Dates (YYYY-MM-DD) with at least one food logged */
+  dates: string[]
+}
+
+export interface CustomFood {
+  id: string
+  name: string
+  serving: string
+  cal: number
+  p: number
+  c: number
+  f: number
+  createdBy: string
+  createdByName: string
+  createdAt: string
+}
+
+export type DocKey = 'profile' | 'weights' | 'favorites' | 'recents' | 'dayindex' | `days/${string}`
+
+export function emptyDay(date: string): DayDoc {
+  return { date, foods: [], workouts: [], steps: null, deleted: [] }
+}
+
+export function newProfile(id: string, email: string, firstName: string, timeZone: string): Profile {
+  return {
+    id,
+    email: email.toLowerCase(),
+    firstName,
+    createdAt: new Date().toISOString(),
+    onboarded: false,
+    units: 'imperial',
+    activityMode: 'level',
+    activityLevel: 'sedentary',
+    bestStreak: 0,
+    milestonesHit: [],
+    timeZone: timeZone || 'America/Chicago',
+    notif: { enabled: false, hour: 20 },
+  }
+}

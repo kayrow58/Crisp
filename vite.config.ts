@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg'],
+      includeAssets: ['icons/apple-touch-icon.png', 'icons/icon.svg', 'push-sw.js'],
       manifest: {
         name: 'Crisp',
         short_name: 'Crisp',
@@ -29,7 +29,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,json}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/\.netlify\//],
+        navigateFallbackDenylist: [/^\/\.netlify\//, /^\/api\//],
+        importScripts: ['/push-sw.js'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
     }),
   ],

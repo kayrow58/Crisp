@@ -1,8 +1,5 @@
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: none;
   height: calc(var(--tabbar-h) + var(--safe-bottom));
   padding: 0 calc(var(--s2) + var(--safe-right)) var(--safe-bottom) calc(var(--s2) + var(--safe-left));
   display: grid;
@@ -22,6 +19,7 @@
   justify-content: center;
   gap: 2px;
   color: var(--text-2);
+  text-align: center;
 }
 
 .tab--active {

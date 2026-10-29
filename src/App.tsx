@@ -1,49 +1,95 @@
-import { useState } from 'react'
-import TabBar, { type Tab } from './components/TabBar'
-import StatCardPreview from './components/StatCardPreview'
-import './App.css'
+import { useEffect, useState } from 'react'
+import TabBar from './components/TabBar'
+import { Overlays } from './components/Overlays'
+import { Shimmer } from './components/ui'
+import { boot, today, track, useStore } from './lib/store'
+import { getPrefs } from './lib/prefs'
+import { getUi, setHomeDate, setTab, useUi } from './lib/ui'
+import { hasRecoveryToken } from './lib/auth'
+import { prefersReducedMotion } from './lib/format'
+import { InstallGate, isStandalone } from './screens/InstallGate'
+import { AuthScreen, ResetPassword } from './screens/Auth'
+import { Onboarding } from './screens/Onboarding'
+import { Home } from './screens/Home'
+import { Fitness } from './screens/Fitness'
+import { Weight } from './screens/Weight'
+import { Settings } from './screens/Settings'
+import { openLog } from './screens/Log'
 
-// App shell only (initial commit). Real screens are built milestone by milestone —
-// see GitHub Milestones M1–M13 and docs/SPEC.md §13.
+// The Home Screen requirement is off in development builds (npm run dev) so the app can be previewed on a computer.
+const REQUIRE_HOME_SCREEN = import.meta.env.PROD
 
-const titles: Record<Tab, string> = {
-  home: 'Today',
-  fitness: 'Fitness',
-  weight: 'Weight',
-  settings: 'Settings',
-}
-
-const comingIn: Record<Tab, string> = {
-  home: 'Home is built in M6.',
-  fitness: 'Fitness is built in M8.',
-  weight: 'Weight is built in M9.',
-  settings: 'Settings is built in M10.',
-}
+let booted = false
+let opened = false
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('home')
+  const phase = useStore((s) => s.phase)
+  const onboarded = useStore((s) => !!s.profile?.onboarded)
+  const [splash, setSplash] = useState(!prefersReducedMotion())
+
+  useEffect(() => {
+    if (!booted) {
+      booted = true
+      void boot()
+    }
+    const t = setTimeout(() => setSplash(false), 650)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (phase === 'ready' && !opened) {
+      opened = true
+      const p = getPrefs()
+      track('app_open', { theme: p.theme, macroDisplay: p.macroDisplay, graph: p.graph })
+    }
+  }, [phase])
+
+  if (hasRecoveryToken()) return <ResetPassword />
+  if (REQUIRE_HOME_SCREEN && !isStandalone()) return <InstallGate />
+
+  let body
+  if (phase === 'loading')
+    body = (
+      <main className="boot">
+        <Shimmer h={140} r={20} />
+        <Shimmer />
+        <Shimmer />
+      </main>
+    )
+  else if (phase === 'signedOut') body = <AuthScreen />
+  else if (!onboarded) body = <Onboarding />
+  else body = <Main />
 
   return (
+    <>
+      {body}
+      <Overlays />
+      {splash && (
+        <div className="splash" aria-hidden>
+          <img src="/icons/icon-192.png" alt="" width={96} height={96} />
+        </div>
+      )}
+    </>
+  )
+}
+
+function Main() {
+  const tab = useUi((s) => s.tab)
+  return (
     <div className="app">
-      <main className="screen" key={tab}>
-        <header className="screen-header">
-          <h1 className="large-title">{titles[tab]}</h1>
-          {tab === 'home' && (
-            <span className="streak" aria-label="Streak: 0 days">
-              🔥 0
-            </span>
-          )}
-        </header>
-
-        {tab === 'home' && <StatCardPreview />}
-
-        <p className="placeholder">{comingIn[tab]}</p>
-      </main>
-
+      <div className="tab-content" key={tab}>
+        {tab === 'home' && <Home />}
+        {tab === 'fitness' && <Fitness />}
+        {tab === 'weight' && <Weight />}
+        {tab === 'settings' && <Settings />}
+      </div>
       <TabBar
         active={tab}
-        onChange={setTab}
-        onLog={() => alert('Food logging is built in M5.')}
+        onChange={(t) => {
+          if (t === 'home' && getUi().tab === 'home') setHomeDate(null)
+          setTab(t)
+        }}
+        onLog={() => openLog(getUi().tab === 'home' ? getUi().homeDate ?? today() : today())}
       />
     </div>
   )

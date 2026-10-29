@@ -6,12 +6,6 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Single-page app: send unknown paths to index.html
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 # Never cache the service worker or manifest, so updates reach phones
 [[headers]]
   for = "/sw.js"
