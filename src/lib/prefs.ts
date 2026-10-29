@@ -9,6 +9,10 @@ export interface Prefs {
   statMode: 'eaten' | 'left'
   notifCardDismissed: boolean
   lostCardFor: string
+  /** Apple Fitness sync time chosen in Crisp (HH:MM, 24h) and setup progress on this phone */
+  syncTime: string
+  shortcutAdded: boolean
+  shortcutConnected: boolean
 }
 
 const DEFAULTS: Prefs = {
@@ -18,6 +22,9 @@ const DEFAULTS: Prefs = {
   statMode: 'eaten',
   notifCardDismissed: false,
   lostCardFor: '',
+  syncTime: '21:00',
+  shortcutAdded: false,
+  shortcutConnected: false,
 }
 
 const KEY = 'crisp.prefs'

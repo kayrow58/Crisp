@@ -1,9 +1,8 @@
 // Settings (spec §4.8) and its sub-screens.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Bell,
   ChartLine,
-  Copy,
   Crown,
   Heartbeat,
   Key,
@@ -18,7 +17,7 @@ import {
 } from '@phosphor-icons/react'
 import { PushedScreen, TabScreen } from '../components/Screen'
 import { Button, Field, Group, Note, Row, Segmented, Toggle } from '../components/ui'
-import { getState, latestWeightKg, signOut, track, updateProfile, useStore } from '../lib/store'
+import { getState, latestWeightKg, refresh, signOut, track, updateProfile, useStore } from '../lib/store'
 import { setPref, usePrefs, type Theme } from '../lib/prefs'
 import { confirm, pushScreen, toast } from '../lib/ui'
 import { CM_PER_IN, healthyRangeKg, isBelowFloor, isBelowHealthy, maintenanceFor, suggestTargets } from '../../shared/calc'
@@ -30,6 +29,7 @@ import { disableNotifications, enableNotifications, pushSupported } from '../lib
 import { ACTIVITY_LABELS } from './Onboarding'
 import { Admin } from './Admin'
 import { SHORTCUT_URL } from '../config'
+import { ChipRow } from '../components/Pickers'
 
 export function Settings() {
   const p = useStore((s) => s.profile)!
@@ -417,56 +417,119 @@ function ActivityModeScreen() {
   )
 }
 
+const SHORTCUT_NAME = 'Crisp Sync'
+const SYNC_TIMES = ['20:00', '21:00', '22:00', '23:00']
+const timeLabel = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number)
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+/**
+ * Apple Fitness setup: everything is chosen here in Crisp, then one tap connects.
+ * "Connect" runs the Shortcut with this person's sync code as its input (Apple's shortcuts:// link),
+ * so nobody copies or pastes a code. The only step Apple keeps in the Shortcuts app is the nightly automation.
+ */
 export function ConnectFitness() {
   const p = useStore((s) => s.profile)!
+  const prefs = usePrefs()
   const code = p.fitnessCode ?? ''
-  const copy = async (text: string, what: string) => {
+  const custom = !SYNC_TIMES.includes(prefs.syncTime)
+  const synced = !!p.fitnessLastSync
+  const connected = prefs.shortcutConnected || synced
+  const time = timeLabel(prefs.syncTime)
+  // Coming back from the Shortcuts app: fetch the new sync right away.
+  useEffect(() => {
+    const on = () => document.visibilityState === 'visible' && void refresh()
+    document.addEventListener('visibilitychange', on)
+    return () => document.removeEventListener('visibilitychange', on)
+  }, [])
+
+  const connect = async () => {
     try {
-      await navigator.clipboard.writeText(text)
-      toast(`${what} copied`)
+      await navigator.clipboard.writeText(code) // backup, in case the Shortcut asks
     } catch {
-      toast('Press and hold the text to copy it', { tone: 'error' })
+      /* not needed */
     }
+    setPref('shortcutConnected', true)
+    track('fitness_connect_tapped')
+    window.location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(code)}`
   }
+
   return (
     <PushedScreen title="Apple Fitness">
-      <p className="lead">Crisp can't read Apple Health directly, so a free Apple Shortcut sends your steps and workouts each evening.</p>
-      {p.fitnessLastSync && <Note>✓ Last synced {timeAgo(p.fitnessLastSync)}</Note>}
+      <p className="lead">Crisp can't read Apple Health directly, so a free Apple Shortcut sends your steps and workouts each night. Set it up here — it takes a minute.</p>
+      {synced && <Note>✓ Connected · last synced {timeAgo(p.fitnessLastSync!)}</Note>}
       <ol className="guide">
-        <li>
-          <strong>Copy your sync code.</strong>
-          <button className="code pressable" onClick={() => void copy(code, 'Sync code')} aria-label="Copy sync code">
-            <code>{code || 'Sign in again to get a code'}</code>
-            <Copy size={18} aria-hidden />
-          </button>
+        <li className={prefs.syncTime ? 'guide-done' : ''}>
+          <strong>When should Crisp sync?</strong>
+          <span className="muted small">Pick a time after your last workout of the day.</span>
+          <ChipRow
+            label="Sync time"
+            value={custom ? 'custom' : prefs.syncTime}
+            onChange={(v) => setPref('syncTime', v === 'custom' ? '21:30' : v)}
+            options={[...SYNC_TIMES.map((t) => ({ value: t, label: timeLabel(t) })), { value: 'custom', label: 'Other' }]}
+          />
+          {custom && (
+            <input
+              className="input time-input"
+              type="time"
+              value={prefs.syncTime}
+              onChange={(e) => e.target.value && setPref('syncTime', e.target.value)}
+              aria-label="Custom sync time"
+            />
+          )}
         </li>
-        <li>
-          <strong>Add the Crisp Shortcut.</strong>
+        <li className={prefs.shortcutAdded ? 'guide-done' : ''}>
+          <strong>Add the Crisp Shortcut</strong>
           {SHORTCUT_URL ? (
-            <Button onClick={() => (window.location.href = SHORTCUT_URL)}>Add Shortcut</Button>
+            <>
+              <Button
+                kind={prefs.shortcutAdded ? 'secondary' : 'primary'}
+                onClick={() => {
+                  setPref('shortcutAdded', true)
+                  window.location.href = SHORTCUT_URL
+                }}
+              >
+                {prefs.shortcutAdded ? 'Add it again' : 'Add Shortcut'}
+              </Button>
+              <span className="muted small">Tap “Add Shortcut” in the Shortcuts app, then come back here.</span>
+            </>
           ) : (
             <Note tone="warn">The Shortcut link isn't set up yet — Kay is adding it soon.</Note>
           )}
-          <span className="muted small">Tap “Add Shortcut”, paste your code when asked, and allow access to Health.</span>
+        </li>
+        <li className={connected ? 'guide-done' : ''}>
+          <strong>Connect</strong>
+          <Button kind={connected ? 'secondary' : 'primary'} onClick={() => void connect()} disabled={!code || !SHORTCUT_URL}>
+            {connected ? 'Sync now' : 'Connect & sync'}
+          </Button>
+          <span className="muted small">Sends your code to the Shortcut and syncs today. Tap “Allow” for Health the first time, then come back and pull down to refresh.</span>
         </li>
         <li>
-          <strong>Make it run every night.</strong>
+          <strong>Make it automatic at {time}</strong>
           <span className="muted small">
-            Open the Shortcuts app → Automation → + → Time of Day → 9:00 PM, Daily → “Run Immediately” → choose “Crisp Sync” → Done.
+            Apple only lets you do this part in the Shortcuts app: <b>Automation</b> → <b>+</b> → <b>Time of Day</b> → <b>{time}</b>, <b>Daily</b> → <b>Run Immediately</b> → choose <b>{SHORTCUT_NAME}</b> → Done.
           </span>
-        </li>
-        <li>
-          <strong>Test it.</strong>
-          <span className="muted small">Run “Crisp Sync” once now, then pull down on the Fitness tab.</span>
+          <Button kind="secondary" onClick={() => (window.location.href = 'shortcuts://')}>
+            Open Shortcuts
+          </Button>
         </li>
       </ol>
-      {getState().isAdmin && (
-        <Group title="For building the Shortcut" footer="See docs/SHORTCUT.md in the repo for the full steps.">
-          <Row label="Sync address" sub={`${location.origin}/api/fitness`} onClick={() => void copy(`${location.origin}/api/fitness`, 'Address')} />
-        </Group>
-      )}
+      <Group title="If something's off" footer="Your sync code is private — it only lets the Shortcut send your steps and workouts.">
+        <Row label="Sync code" sub={code || 'Sign in again to get a code'} onClick={() => void copyText(code, 'Sync code')} />
+        {getState().isAdmin && <Row label="Sync address" sub={`${location.origin}/api/fitness`} onClick={() => void copyText(`${location.origin}/api/fitness`, 'Address')} />}
+      </Group>
     </PushedScreen>
   )
+}
+
+async function copyText(text: string, what: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast(`${what} copied`)
+  } catch {
+    toast('Press and hold the text to copy it', { tone: 'error' })
+  }
 }
 
 function ChangePassword() {

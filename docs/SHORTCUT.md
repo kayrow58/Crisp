@@ -19,33 +19,42 @@ friend adds it from **Crisp → Settings → Connect Apple Fitness**.
 
 Running it again the same day replaces that day's synced numbers (it never double-counts).
 
+## How setup feels for each person
+
+Everything happens in **Crisp → Settings → Connect Apple Fitness**:
+1. **Pick a sync time** (8, 9, 10, 11 PM or Other).
+2. **Add Shortcut** — opens the iCloud link once.
+3. **Connect & sync** — Crisp opens `shortcuts://run-shortcut?name=Crisp%20Sync&input=text&text=<their code>`.
+   The Shortcut saves the code on their phone and syncs today. No copying or pasting.
+4. **Make it automatic at <their time>** — the one part Apple only allows inside the Shortcuts app.
+   Crisp shows the exact steps with their chosen time and an **Open Shortcuts** button.
+
 ## Build it (on your iPhone, in the Shortcuts app)
 
-1. Tap **+** to make a new Shortcut. Name it **Crisp Sync**.
-2. Add **Text** → paste your sync code for now (it gets replaced in step 9). Then add **Set Variable** → name it `Code`.
-3. Add **Find Health Samples** → Type: **Steps** → Start Date **is today** → (Group by: Day). Then **Calculate Statistics** → **Sum** of the Health Samples. Then **Set Variable** → `Steps`.
-4. Add **Find Health Samples** → Type: **Workouts** → Start Date **is today**.
-5. Add **Get Details of Health Sample** → **Duration** (minutes) → **Calculate Statistics** → **Sum** → **Set Variable** → `WorkoutMinutes`.
-6. Repeat with the Workouts samples → **Get Details of Health Sample** → **Total Energy** (or Active Energy) → **Calculate Statistics** → **Sum** → **Set Variable** → `WorkoutCalories`.
-7. Add **Get Contents of URL**:
-   - URL: `https://<your-site>.netlify.app/api/fitness`
-   - Method: **POST**, Request Body: **JSON**
-   - Fields: `code` = `Code`, `steps` = `Steps`, `workoutMinutes` = `WorkoutMinutes`, `workoutCalories` = `WorkoutCalories`
-8. Add **Get Dictionary Value** → `message` → **Show Notification** (optional) so you can see it worked.
-9. Turn the step-2 Text into an **Import Question**: tap the Shortcut's ⓘ / settings → **Setup** → add a question for the Text action: "Paste your Crisp sync code". Now everyone who adds the Shortcut is asked for *their own* code.
-10. Run it once. You should see "Synced … to Crisp." Pull down on Crisp's Fitness tab to see it.
+The name must be exactly **Crisp Sync** (Crisp runs it by name).
+
+1. Tap **+**, name it **Crisp Sync**.
+2. **Save the code Crisp sends:**
+   - Add **If** → input **Shortcut Input** → condition **has any value**. Delete the **Otherwise** part.
+   - Inside the If: add **Save File** → file **Shortcut Input** → turn **off** Ask Where to Save → folder **Shortcuts**,
+     subpath `crisp-code.txt` → turn **on** Overwrite If File Exists.
+   - At the top of the Shortcut, tap **Receive … input** and choose **Text** only.
+3. **Read the code:** after End If, add **Get File from Folder** → folder **Shortcuts**, path `crisp-code.txt`
+   → **Get Text from Input** → **Set Variable** `Code`.
+4. **Steps:** **Find Health Samples** → Type **Steps**, Start Date **is today** → **Calculate Statistics** → **Sum** → **Set Variable** `Steps`.
+5. **Workouts:** **Find Health Samples** → Type **Workouts**, Start Date **is today**
+   - **Get Details of Health Sample** → **Duration** → **Calculate Statistics** → **Sum** → **Set Variable** `WorkoutMinutes`
+   - **Get Details of Health Sample** (same Workouts samples) → **Total Energy** → **Calculate Statistics** → **Sum** → **Set Variable** `WorkoutCalories`
+   - (If Workouts isn't offered as a type, skip this — steps still sync.)
+6. **Get Contents of URL** → `https://crisp-macro.netlify.app/api/fitness` → Method **POST**, Request Body **JSON**:
+   `code` (Text) = Code · `steps` (Number) = Steps · `workoutMinutes` (Number) = WorkoutMinutes · `workoutCalories` (Number) = WorkoutCalories
+7. **Get Dictionary Value** → key `message` → **Show Notification** (Dictionary Value).
+8. Test from Crisp: Settings → Connect Apple Fitness → **Connect & sync** (allow Health access when asked).
 
 ## Share it
 
 1. In Shortcuts, press and hold **Crisp Sync** → **Share** → **Copy iCloud Link**.
-2. In Netlify → **Project configuration → Environment variables**, add `VITE_SHORTCUT_URL` = that link, then **redeploy**.
-   (Or paste the link into `src/config.ts`.)
-3. The **Add Shortcut** button in Crisp → Settings → Connect Apple Fitness now opens it.
+2. Paste the link into `src/config.ts` (or Netlify env var `VITE_SHORTCUT_URL`, then redeploy).
 
-## Each person, once
-
-The guide in Crisp walks them through it: copy sync code → **Add Shortcut** → paste code → allow Health
-access → Shortcuts app → **Automation** → **+** → **Time of Day** → 9:00 PM, Daily → **Run Immediately** →
-choose **Crisp Sync**.
-
+Running it again the same day replaces that day's numbers (never double-counts).
 If someone's data stops arriving, Crisp shows a "hasn't synced in 2 days" card with **Fix it** and **Enter manually**.
