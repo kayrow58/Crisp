@@ -1,7 +1,8 @@
 // Welcome · Sign in · Create account · Forgot password · Reset password (spec §3.2, §3.3, §3.10, §7).
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { WebAuthnAbortService } from '@simplewebauthn/browser'
 import { Button, Field, Note } from '../components/ui'
-import { completeReset, passkeysSupported, requestReset, signIn, signInWithPasskey, signUp } from '../lib/auth'
+import { completeReset, passkeysSupported, requestReset, signIn, signInWithPasskey, signUp, startPasskeyAutofill } from '../lib/auth'
 import { errorMessage } from '../lib/api'
 
 type View = 'welcome' | 'signin' | 'signup' | 'forgot'
@@ -39,6 +40,11 @@ function SignIn({ go }: { go: (v: View) => void }) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState<'pw' | 'pk' | null>(null)
   const [err, setErr] = useState('')
+  // Offer the saved passkey above the keyboard when the Email box is tapped.
+  useEffect(() => {
+    if (passkeysSupported()) void startPasskeyAutofill()
+    return () => WebAuthnAbortService.cancelCeremony()
+  }, [])
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
@@ -76,7 +82,7 @@ function SignIn({ go }: { go: (v: View) => void }) {
           <p className="auth-or">or use your password</p>
         </>
       )}
-      <Field label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <Field label="Email" type="email" autoComplete="username webauthn" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       <Field label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {err && <Note tone="error">{err}</Note>}
       <Button type="submit" kind={passkeysSupported() ? 'secondary' : 'primary'} busy={busy === 'pw'}>
@@ -118,7 +124,7 @@ function SignUp({ go }: { go: (v: View) => void }) {
       </button>
       <h1 className="large-title">Create account</h1>
       <Field label="First name" autoComplete="given-name" value={f.firstName} onChange={set('firstName')} required />
-      <Field label="Email" type="email" autoComplete="email" inputMode="email" value={f.email} onChange={set('email')} required />
+      <Field label="Email" type="email" autoComplete="username" inputMode="email" value={f.email} onChange={set('email')} required />
       <Field label="Password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={set('password')} hint="At least 8 characters" required />
       <Field label="Invite code" autoCapitalize="characters" autoComplete="off" value={f.invite} onChange={set('invite')} hint="Kay gave you this code" required />
       {err && (
@@ -171,7 +177,7 @@ function Forgot({ go }: { go: (v: View) => void }) {
         </>
       ) : (
         <>
-          <Field label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Field label="Email" type="email" autoComplete="username" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           {err && <Note tone="error">{err}</Note>}
           <Button type="submit" busy={busy}>
             Send reset email

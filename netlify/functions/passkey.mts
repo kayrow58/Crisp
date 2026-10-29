@@ -62,7 +62,10 @@ export default handler(async (req, url) => {
       userID: new TextEncoder().encode(s.uid),
       attestationType: 'none',
       excludeCredentials: existing.map((id) => ({ id })),
-      authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+      // Save the passkey on this phone (Apple Passwords / iCloud Keychain, or Google Password Manager if
+      // that's the phone's chosen passkey app) — not a security key or another phone — and always use Face ID.
+      authenticatorSelection: { residentKey: 'required', userVerification: 'required', authenticatorAttachment: 'platform' },
+      preferredAuthenticatorType: 'localDevice',
     })
     await saveChallenge(`reg-${s.uid}`, options.challenge)
     return json({ options })
@@ -91,14 +94,28 @@ export default handler(async (req, url) => {
     const profile = await getProfile(s.uid)
     if (profile) await saveProfile({ ...profile, passkeyEnabled: true })
     await recordEvent(s.uid, 'faceid_on')
-    return json({ ok: true })
+    return json({ ok: true, id: c.id })
   }
 
   if (r === 'login-options' && req.method === 'POST') {
-    const options = await generateAuthenticationOptions({ rpID, userVerification: 'preferred' })
+    // The phone remembers which passkeys were made on it. Naming them lets iOS go straight to Face ID
+    // for that passkey instead of offering other phones, QR codes or security keys.
+    const b = await body<{ credentialIds?: string[]; autofill?: boolean }>(req).catch(() => ({}) as { credentialIds?: string[]; autofill?: boolean })
+    const ids = (Array.isArray(b.credentialIds) ? b.credentialIds : []).filter((x) => typeof x === 'string').slice(0, 10)
+    const known = b.autofill
+      ? []
+      : ((await Promise.all(ids.map((id) => pk.get(`cred/${id}`, { type: 'json' })))) as (StoredCred | null)[]).filter((c): c is StoredCred => !!c)
+    const options = await generateAuthenticationOptions({
+      rpID,
+      userVerification: 'required',
+      allowCredentials: known.map((c) => ({
+        id: c.id,
+        transports: (c.transports ?? []).filter((t) => t === 'internal' || t === 'hybrid').length ? ['internal', 'hybrid'] : ['internal'],
+      })),
+    })
     const challengeId = randomId()
     await saveChallenge(challengeId, options.challenge)
-    return json({ options, challengeId })
+    return json({ options: { ...options, hints: ['client-device'] }, challengeId, known: known.map((c) => c.id) })
   }
 
   if (r === 'login-verify' && req.method === 'POST') {

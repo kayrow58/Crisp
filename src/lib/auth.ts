@@ -1,5 +1,5 @@
 // Sign-up / sign-in / Face ID / password reset (spec §3.2–3.3, §3.10, §9).
-import { startAuthentication, startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser'
+import { startAuthentication, startRegistration, browserSupportsWebAuthn, browserSupportsWebAuthnAutofill } from '@simplewebauthn/browser'
 import { api } from './api'
 import { signedIn, updateProfile, type AuthResult } from './store'
 
@@ -23,19 +23,64 @@ export const passkeysSupported = () => {
   }
 }
 
+// Passkeys made on this phone, so sign-in can ask for exactly that passkey (straight to Face ID).
+const KNOWN_KEY = 'crisp.passkeyIds'
+const knownIds = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(KNOWN_KEY) ?? '[]') as string[]
+  } catch {
+    return []
+  }
+}
+const rememberId = (id: string) => {
+  try {
+    localStorage.setItem(KNOWN_KEY, JSON.stringify([id, ...knownIds().filter((x) => x !== id)].slice(0, 5)))
+  } catch {
+    /* storage unavailable */
+  }
+}
+const forgetIds = () => {
+  try {
+    localStorage.removeItem(KNOWN_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+type LoginOptions = { options: Parameters<typeof startAuthentication>[0]['optionsJSON']; challengeId: string }
+
+async function finishPasskeySignIn(challengeId: string, response: Awaited<ReturnType<typeof startAuthentication>>) {
+  const r = await api<AuthResult>('/api/passkey/login-verify', { body: { challengeId, response }, auth: false })
+  rememberId(response.id)
+  await signedIn(r)
+}
+
 export async function signInWithPasskey() {
-  const { options, challengeId } = await api<{ options: Parameters<typeof startAuthentication>[0]['optionsJSON']; challengeId: string }>(
-    '/api/passkey/login-options',
-    { body: {}, auth: false },
-  )
+  const { options, challengeId } = await api<LoginOptions>('/api/passkey/login-options', { body: { credentialIds: knownIds() }, auth: false })
   let response
   try {
     response = await startAuthentication({ optionsJSON: options })
-  } catch {
+  } catch (e) {
+    const name = (e as { name?: string }).name
+    if (name === 'NotAllowedError') throw new Error("Face ID was cancelled, or this iPhone doesn't have a Crisp passkey saved in Passwords.")
     throw new Error("Face ID didn't work.")
   }
-  const r = await api<AuthResult>('/api/passkey/login-verify', { body: { challengeId, response }, auth: false })
-  await signedIn(r)
+  await finishPasskeySignIn(challengeId, response)
+}
+
+/**
+ * Passkey autofill: tapping the Email box shows "Sign in with passkey" from Apple Passwords
+ * (or Google Password Manager) above the keyboard. Runs quietly; ends when the sign-in screen closes.
+ */
+export async function startPasskeyAutofill() {
+  try {
+    if (!(await browserSupportsWebAuthnAutofill())) return
+    const { options, challengeId } = await api<LoginOptions>('/api/passkey/login-options', { body: { autofill: true }, auth: false })
+    const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: true })
+    await finishPasskeySignIn(challengeId, response)
+  } catch {
+    /* cancelled, replaced by the Face ID button, or not supported */
+  }
 }
 
 export async function registerPasskey() {
@@ -46,12 +91,14 @@ export async function registerPasskey() {
   } catch {
     throw new Error("Face ID setup didn't finish. You can try again in Settings.")
   }
-  await api('/api/passkey/register-verify', { body: { response, deviceName: navigator.platform || 'iPhone' } })
+  const r = await api<{ ok: boolean; id?: string }>('/api/passkey/register-verify', { body: { response, deviceName: navigator.platform || 'iPhone' } })
+  rememberId(r.id ?? response.id)
   updateProfile({ passkeyEnabled: true })
 }
 
 export async function disablePasskey() {
   await api('/api/passkey/disable', { body: {} })
+  forgetIds()
   updateProfile({ passkeyEnabled: false })
 }
 
