@@ -91,6 +91,14 @@ check(day.steps.count === 8200 && day.workouts.length === 1 && day.foods.length 
 await call(fitness, '/api/fitness', { body: { code: 'samcode456', steps: 9000, date, workoutCalories: 200, workoutMinutes: 20 } })
 r = await call(sync, `/api/sync?days=${date}`, { tok: tSam })
 check(r.body.docs[`days/${date}`].data.workouts.length === 1 && r.body.docs[`days/${date}`].data.steps.count === 9000, 'a second Shortcut run replaces (not duplicates) its data')
+// Activity-ring totals: Active Energy minus the walking already counted from steps
+r = await call(fitness, '/api/fitness', { body: { code: 'samcode456', steps: '8,000', date, activeCalories: '612.4 kcal', exerciseMinutes: '42 min' } })
+check(r.status === 200 && /42 exercise min/.test(r.body.message), `Activity-ring sync works: "${r.body.message}"`)
+r = await call(sync, `/api/sync?days=${date}`, { tok: tSam })
+{
+  const w = r.body.docs[`days/${date}`].data.workouts
+  check(w.length === 1 && w[0].type === 'Exercise' && w[0].minutes === 42 && w[0].cal > 200 && w[0].cal < 612, `exercise keeps only the burn beyond walking (${w[0]?.cal} cal of 612)`)
+}
 
 // --- foods
 r = await call(foods, '/api/foods', { tok: tSam, body: { name: 'Quest bar', serving: '1 bar', cal: 190, p: 21, c: 22, f: 8 } })

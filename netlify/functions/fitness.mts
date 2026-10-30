@@ -1,12 +1,16 @@
 // Receives Apple Health data from the Crisp Apple Shortcut (spec §3.7, §8).
 // The Shortcut sends JSON: { code, steps, workouts?: [{ type, minutes, calories }], date? }
 // It can also send simple totals instead of a list: { code, steps, workoutMinutes, workoutCalories }.
+// Or the Activity-ring totals (works on every iOS version): { code, steps, activeCalories, exerciseMinutes }.
+//   activeCalories = Active Energy (Move ring: walking + workouts). The walking part is already counted
+//   from steps, so only the extra burn is kept as today's exercise — nothing is counted twice.
 import type { Config } from '@netlify/functions'
 import { HttpError, body, handler, json, randomId } from '../lib/http'
 import { getProfile, saveProfile, stores, update } from '../lib/stores'
 import { recordEvent } from '../lib/events'
 import { dayKey } from '../../shared/dates'
-import { emptyDay, type DayDoc, type Workout } from '../../shared/types'
+import { stepCalories } from '../../shared/calc'
+import { emptyDay, type DayDoc, type WeightEntry, type Workout } from '../../shared/types'
 
 export const config: Config = { path: '/api/fitness' }
 
@@ -24,6 +28,8 @@ export default handler(async (req) => {
     workouts?: { type?: string; minutes?: unknown; calories?: unknown }[]
     workoutMinutes?: unknown
     workoutCalories?: unknown
+    activeCalories?: unknown
+    exerciseMinutes?: unknown
   }>(req)
   const uid = await stores.fitnesscodes().get(String(b.code ?? '').trim(), { type: 'text' })
   if (!uid) throw new HttpError(401, 'bad_code', 'That sync code is not recognized. Copy it again from Crisp → Settings → Connect Apple Fitness.')
@@ -54,6 +60,18 @@ export default handler(async (req) => {
     })
   }
 
+  // Activity-ring totals: exercise = Active Energy minus what the steps already account for.
+  if (!list.length && (num(b.activeCalories) > 0 || num(b.exerciseMinutes) > 0)) {
+    const weights = ((await stores.userdata().get(`${uid}/weights`, { type: 'json' }).catch(() => null)) as { items?: WeightEntry[] } | null)?.items ?? []
+    const latest = [...weights].sort((a, c) => a.date.localeCompare(c.date)).pop()
+    const kg = latest?.kg ?? profile.startWeightKg ?? 75
+    const extra = Math.max(0, num(b.activeCalories) - stepCalories(steps, kg))
+    const minutes = Math.round(num(b.exerciseMinutes))
+    if (minutes > 0 || extra >= 20) {
+      list.push({ id: `sc-${randomId(6)}`, type: 'Exercise', minutes, cal: Math.round(extra), source: 'shortcut', at: now })
+    }
+  }
+
   await update<DayDoc>(stores.userdata(), `${uid}/days/${date}`, (cur) => {
     const day = cur ?? emptyDay(date)
     return {
@@ -68,6 +86,10 @@ export default handler(async (req) => {
   if (first) await recordEvent(uid, 'fitness_connected')
   await recordEvent(uid, 'fitness_synced', { steps, workouts: list.length })
 
-  const parts = [steps ? `${steps.toLocaleString('en-US')} steps` : null, list.length ? `${list.length} workout${list.length > 1 ? 's' : ''}` : null].filter(Boolean)
+  const exercise = list.find((w) => w.type === 'Exercise')
+  const parts = [
+    steps ? `${steps.toLocaleString('en-US')} steps` : null,
+    exercise ? `${exercise.minutes} exercise min` : list.length ? `${list.length} workout${list.length > 1 ? 's' : ''}` : null,
+  ].filter(Boolean)
   return json({ ok: true, message: parts.length ? `Synced ${parts.join(' and ')} to Crisp.` : 'Connected to Crisp. Nothing new to sync.' })
 })
