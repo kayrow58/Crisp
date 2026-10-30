@@ -211,3 +211,79 @@ export async function spendCheck(p: Profile): Promise<boolean> {
   await st.set(k, String(n + 1))
   return true
 }
+
+// ---------- AI-first: read the whole meal (no web search, ~0.1¢) ----------
+const MEAL_SYSTEM = `You log meals for a US calorie-tracking app. The person typed or said what they ate, in one go.
+1. Split it into the separate foods they ate. Keep each food's amount/size/count.
+2. Restaurant context carries over: "grilled Chick-fil-A sandwich and waffle fries" means BOTH are from Chick-fil-A.
+   Same for "from/at <place>" anywhere in the message.
+3. For each food, look at the DATABASE list and pick the entry that is the SAME food — same item, and the same
+   restaurant/brand if there is one. A restaurant item must only match that restaurant's entry (never a generic one).
+   Generic foods ("2 eggs", "a banana", "1 cup rice") should match generic entries.
+   If it matches, set "unit" to the index of the best unit in that entry's unit list and "qty" to how many of that unit
+   (e.g. "2 eggs" with unit "1 large" → qty 2; "60 g cheese" with unit "g" → qty 60; "half an avocado" → qty 0.5 of "1 fruit").
+4. If nothing in the database is the same food, set "match": null and write "search": a precise web search name
+   including restaurant/brand and size (e.g. "Chick-fil-A medium waffle potato fries").
+Reply with ONLY JSON:
+{"foods":[{"said":"<the food as they said it>","match":"<database id or null>","unit":0,"qty":1,"search":"<only when match is null>"}]}`
+
+export interface MealFood {
+  said: string
+  matchId: string | null
+  unitIndex: number
+  qty: number
+  search: string
+}
+
+export async function understandMeal(text: string, pool: AiCandidate[]): Promise<MealFood[]> {
+  const key = env('ANTHROPIC_API_KEY')
+  if (!key) throw new HttpError(503, 'ai_not_setup', 'AI lookup is not set up yet (missing ANTHROPIC_API_KEY).')
+  const db = pool.length
+    ? pool.map((c) => `- ${c.id} · ${c.name} · units: ${(c.units?.length ? c.units : [c.serving]).map((u, i) => `[${i}] ${u}`).join(', ')}`).join('\n')
+    : '(empty)'
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 60_000)
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: ctrl.signal,
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      max_tokens: 1200,
+      system: MEAL_SYSTEM,
+      messages: [{ role: 'user', content: `What they ate: ${text}\n\nDATABASE:\n${db}` }],
+    }),
+  }).finally(() => clearTimeout(timer))
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const data = (await res.json()) as { content: Block[] }
+  return parseMeal(data.content.map((b) => b.text ?? '').join(''), pool)
+}
+
+/** Read Claude's meal breakdown; only accept database ids/units that were actually offered. */
+export function parseMeal(text: string, pool: AiCandidate[]): MealFood[] {
+  let foods: { said?: unknown; match?: unknown; unit?: unknown; qty?: unknown; search?: unknown }[] = []
+  try {
+    const fenced = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].pop()?.[1]
+    const raw = fenced ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
+    foods = (JSON.parse(raw) as { foods?: typeof foods }).foods ?? []
+  } catch {
+    throw new Error('Could not read the AI answer')
+  }
+  const out: MealFood[] = []
+  for (const f of foods.slice(0, 12)) {
+    const said = String(f.said ?? '').trim().slice(0, 120)
+    if (!said) continue
+    const cand = typeof f.match === 'string' ? pool.find((c) => c.id === f.match) : undefined
+    const unitCount = cand ? Math.max(1, cand.units?.length ?? 1) : 1
+    const unit = Math.round(Number(f.unit))
+    const qty = Number(f.qty)
+    out.push({
+      said,
+      matchId: cand ? cand.id : null,
+      unitIndex: cand && unit >= 0 && unit < unitCount ? unit : 0,
+      qty: Number.isFinite(qty) && qty > 0 && qty < 2000 ? Math.round(qty * 100) / 100 : 1,
+      search: String(f.search ?? '').trim().slice(0, 160) || said,
+    })
+  }
+  return out
+}

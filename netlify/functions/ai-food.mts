@@ -29,7 +29,34 @@ export default handler(async (req, url) => {
 
   if (r === '' && req.method === 'POST') {
     if (!env('ANTHROPIC_API_KEY')) throw new HttpError(503, 'ai_not_setup', "AI lookup isn't switched on yet.")
-    const b = await body<{ foods?: { query?: string; candidates?: AiCandidate[] }[] }>(req)
+    const b = await body<{ foods?: { query?: string; candidates?: AiCandidate[] }[]; text?: string; pool?: AiCandidate[] }>(req)
+    const cleanCand = (c: AiCandidate): AiCandidate => ({
+      id: String(c.id).slice(0, 60),
+      name: String(c.name).slice(0, 120),
+      serving: String(c.serving ?? '').slice(0, 60),
+      cal: Number(c.cal) || 0,
+      units: Array.isArray(c.units) ? c.units.slice(0, 8).map((u) => String(u).slice(0, 60)) : undefined,
+    })
+    // AI-first: the whole meal as typed/said, plus the closest foods Crisp has.
+    if (typeof b.text === 'string') {
+      const text = b.text.trim().slice(0, 600)
+      if (text.length < 2) throw new HttpError(400, 'need_query', 'Tell Crisp what you ate.')
+      if (!(await spendCheck(profile))) throw new HttpError(429, 'too_many', "That's a lot of lookups today — try again tomorrow.")
+      const job: AiJob & { runToken: string } = {
+        id: randomId(12),
+        uid: s.uid,
+        text,
+        queries: [],
+        pool: (Array.isArray(b.pool) ? b.pool : []).slice(0, 70).map(cleanCand),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        runToken: randomId(16),
+      }
+      await ai.setJSON(`job/${job.id}`, job)
+      await fetch(new URL('/api/ai-food-run', url.origin), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jobId: job.id, runToken: job.runToken }) })
+      await recordEvent(s.uid, 'ai_lookup', { meal: true })
+      return json({ jobId: job.id, left: (await quota(profile)).left })
+    }
     const foods = (Array.isArray(b.foods) ? b.foods : [])
       .map((f) => ({
         query: String(f?.query ?? '').trim().slice(0, 160),

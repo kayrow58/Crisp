@@ -169,11 +169,15 @@ export interface AiFoodItem {
 }
 
 export interface AiFoodResult {
+  /** the food as the person said it ("waffle fries") */
   query: string
   /** found on the web (needs "Looks good") */
   items: AiFoodItem[]
   /** Claude matched it to a food already in Crisp's database (no web search, no credit) */
   matchId?: string
+  /** for a database match: which of that food's units, and how many */
+  unitIndex?: number
+  qty?: number
   /** out of web lookups for today, so this one wasn't searched */
   limited?: boolean
 }
@@ -184,15 +188,21 @@ export interface AiCandidate {
   name: string
   serving: string
   cal: number
+  /** the food's units in order ("1 tablespoon (15 g)", "g", "oz") so Claude can set the amount */
+  units?: string[]
 }
 
 export interface AiJob {
   id: string
   uid: string
-  /** the foods sent in one lookup */
+  /** what the person typed or said (whole meal) */
+  text?: string
+  /** the foods in this lookup (filled in once Claude has read the meal) */
   queries: string[]
-  /** for each food, the closest foods already in Crisp's database */
+  /** for each food, the closest foods already in Crisp's database (old per-food lookups) */
   candidates?: AiCandidate[][]
+  /** foods from Crisp's database that might be in this meal */
+  pool?: AiCandidate[]
   /** set when a web search was needed but the person is out of lookups */
   limit?: { message: string; special: boolean }
   status: 'pending' | 'done' | 'error'

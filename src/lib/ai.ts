@@ -40,6 +40,29 @@ export async function aiLookup(foods: { query: string; candidates: AiCandidate[]
   throw new Error('The lookup took too long. Try again.')
 }
 
+/** AI-first: send the whole meal (as typed/said) plus the closest foods Crisp has. */
+export async function aiMealLookup(text: string, pool: AiCandidate[], signal?: { cancelled: boolean }): Promise<AiResult> {
+  let start: { jobId: string; left: number }
+  try {
+    start = await api('/api/ai-food', { body: { text, pool } })
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'ai_limit') {
+      const d = e.data as { message?: string; special?: boolean } | undefined
+      throw new AiLimitError(d?.message ?? e.message, !!d?.special)
+    }
+    throw e
+  }
+  const began = Date.now()
+  while (Date.now() - began < 170_000) {
+    await wait(Date.now() - began < 8000 ? 1000 : 1800)
+    if (signal?.cancelled) throw new Error('cancelled')
+    const job = await api<{ status: string; results: AiFoodResult[]; note?: string; limit?: AiResult['limit']; error?: string }>(`/api/ai-food/job/${start.jobId}`)
+    if (job.status === 'done') return { results: job.results, note: job.note, limit: job.limit, jobId: start.jobId, left: start.left }
+    if (job.status === 'error') throw new Error(job.error ?? "The AI lookup didn't work. Try again.")
+  }
+  throw new Error('The lookup took too long. Try again.')
+}
+
 export const aiQuota = () => api<{ left: number; daily: number; bonus: number }>('/api/ai-food/quota')
 
 /** "Looks good": save it for everyone and return it as a food. */

@@ -4,7 +4,7 @@
 // Runs up to 15 minutes; the app polls /api/ai-food/job/<id> for the result.
 import type { Config } from '@netlify/functions'
 import { stores, getProfile } from '../lib/stores'
-import { askClaude, matchWithDatabase, privateMessage, refundCredit, spendCredit } from '../lib/ai'
+import { askClaude, matchWithDatabase, privateMessage, refundCredit, spendCredit, understandMeal } from '../lib/ai'
 import type { AiFoodResult, AiJob } from '../../shared/types'
 
 export const config: Config = { path: '/api/ai-food-run', background: true }
@@ -18,10 +18,20 @@ export default async (req: Request) => {
   if (!profile) return
   let paidWith: AiJob['paidWith']
   try {
-    const candidates = job.candidates ?? job.queries.map(() => [])
-    // 1. Database first.
-    const matches = candidates.some((c) => c.length) ? await matchWithDatabase(job.queries, candidates) : job.queries.map(() => null)
-    const results: AiFoodResult[] = job.queries.map((query, i) => ({ query, items: [], matchId: matches[i] ?? undefined }))
+    let results: AiFoodResult[]
+    let searches: string[]
+    if (job.text != null) {
+      // AI-first: Claude reads the whole meal, carries the restaurant across it, and matches the database.
+      const foods = await understandMeal(job.text, job.pool ?? [])
+      job.queries = foods.map((f) => f.said)
+      results = foods.map((f) => ({ query: f.said, items: [], matchId: f.matchId ?? undefined, unitIndex: f.unitIndex, qty: f.qty }))
+      searches = foods.map((f) => f.search)
+    } else {
+      const candidates = job.candidates ?? job.queries.map(() => [])
+      const matches = candidates.some((c) => c.length) ? await matchWithDatabase(job.queries, candidates) : job.queries.map(() => null)
+      results = job.queries.map((query, i) => ({ query, items: [], matchId: matches[i] ?? undefined }))
+      searches = job.queries
+    }
     const missing = results.map((r, i) => (r.matchId ? -1 : i)).filter((i) => i >= 0)
     let note: string | undefined
     let limit: AiJob['limit']
@@ -36,7 +46,7 @@ export default async (req: Request) => {
         }
         for (const i of missing) results[i].limited = true
       } else {
-        const web = await askClaude(missing.map((i) => job.queries[i]))
+        const web = await askClaude(missing.map((i) => searches[i]))
         note = web.note
         missing.forEach((i, k) => (results[i].items = web.foods[k]?.items ?? []))
         if (!missing.some((i) => results[i].items.length)) {

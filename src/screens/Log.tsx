@@ -1,6 +1,6 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookmarkSimple, CaretUp, Lightning, MagnifyingGlass, Minus, NotePencil, Plus, PlusCircle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
+import { BookmarkSimple, CaretUp, Lightning, MagnifyingGlass, Minus, Plus, PlusCircle, Sparkle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
@@ -13,7 +13,7 @@ import { Dropdown, MealBubble, unitOptions } from '../components/Pickers'
 import { addToTray, clearTray, closeTray, newTrayId, openTray, removeFromTray, trayTotals, useTray, type TrayItem } from '../lib/tray'
 import { mealLabel } from '../lib/meals'
 import { SaveMealSheet, mealTotals, pushSavedMeal, savedMealFood, savedMealTemplate } from './SavedMeals'
-import { TypeItSheet } from './TypeIt'
+import { AiMealSheet } from './AiMeal'
 import { sourceDomain } from '../lib/ai'
 import { api, errorMessage } from '../lib/api'
 import { mealForHour } from '../../shared/calc'
@@ -107,11 +107,13 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
       </div>
       {!q.trim() && (
         <>
-          <button className="typeit-card pressable" onClick={() => openSheet(<TypeItSheet date={date} meal={meal} />)}>
-            <NotePencil size={24} weight="duotone" className="typeit-icon" aria-hidden />
+          <button className="ai-entry pressable" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} />)}>
+            <span className="ai-entry-icon">
+              <Sparkle size={26} weight="fill" aria-hidden />
+            </span>
             <span className="row-main">
-              <strong>Type or say what you ate</strong>
-              <span className="muted small">“2 eggs, 1 cup rice, 6 oz chicken” — Crisp finds the matches</span>
+              <strong>AI</strong>
+              <span className="muted small">Tell me what you ate — talk or type once. Restaurants and brands too.</span>
             </span>
           </button>
           <div className="quick-row">

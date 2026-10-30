@@ -131,6 +131,12 @@ check(r.status === 404, 'unknown AI lookups are refused')
   ]
   const m = aiLib.parseMatches('{"matches":["c:abc","u:made-up",null]}', cands)
   check(m[0] === 'c:abc' && m[1] === null && m[2] === null, 'database matches only accept foods that were actually offered')
+  const pool = [
+    { id: 'u:f1', name: 'Egg, whole, cooked', serving: '1 large', cal: 78, units: ['1 serving (50 g)', '1 egg (50 g)', 'g', 'oz'] },
+    { id: 'c:cfa', name: 'Chick-fil-A Waffle Potato Fries', serving: 'medium', cal: 420, units: ['medium'] },
+  ]
+  const meal = aiLib.parseMeal('```json\n{"foods":[{"said":"2 eggs","match":"u:f1","unit":1,"qty":2},{"said":"waffle fries","match":"c:cfa","unit":5,"qty":1},{"said":"grilled chick-fil-a sandwich","match":"u:invented","search":"Chick-fil-A grilled chicken sandwich"}]}\n```', pool)
+  check(meal.length === 3 && meal[0].matchId === 'u:f1' && meal[0].unitIndex === 1 && meal[0].qty === 2 && meal[1].unitIndex === 0 && meal[2].matchId === null && meal[2].search === 'Chick-fil-A grilled chicken sandwich', 'AI meal breakdown: real database ids/units only, unknown ones become web searches')
 }
 
 // --- foods
