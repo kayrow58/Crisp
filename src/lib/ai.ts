@@ -2,9 +2,9 @@
 // wait for the answer, then "Looks good" saves an item for everyone.
 import { api, ApiError } from './api'
 import { getState, setCustomFoods } from './store'
-import type { AiFoodResult, CustomFood } from '../../shared/types'
+import type { AiCandidate, AiFoodResult, CustomFood } from '../../shared/types'
 
-export type AiResult = { results: AiFoodResult[]; note?: string; jobId: string; left: number }
+export type AiResult = { results: AiFoodResult[]; note?: string; limit?: { message: string; special: boolean }; jobId: string; left: number }
 
 export class AiLimitError extends Error {
   constructor(
@@ -17,10 +17,11 @@ export class AiLimitError extends Error {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-export async function aiLookup(queries: string[], signal?: { cancelled: boolean }): Promise<AiResult> {
+/** Check these foods: Claude matches them to Crisp's database first; only new ones get a web search. */
+export async function aiLookup(foods: { query: string; candidates: AiCandidate[] }[], signal?: { cancelled: boolean }): Promise<AiResult> {
   let start: { jobId: string; left: number }
   try {
-    start = await api('/api/ai-food', { body: { queries } })
+    start = await api('/api/ai-food', { body: { foods } })
   } catch (e) {
     if (e instanceof ApiError && e.code === 'ai_limit') {
       const d = e.data as { message?: string; special?: boolean } | undefined
@@ -32,8 +33,8 @@ export async function aiLookup(queries: string[], signal?: { cancelled: boolean 
   while (Date.now() - began < 170_000) {
     await wait(Date.now() - began < 8000 ? 1200 : 2000)
     if (signal?.cancelled) throw new Error('cancelled')
-    const job = await api<{ status: string; results: AiFoodResult[]; note?: string; error?: string }>(`/api/ai-food/job/${start.jobId}`)
-    if (job.status === 'done') return { results: job.results, note: job.note, jobId: start.jobId, left: start.left }
+    const job = await api<{ status: string; results: AiFoodResult[]; note?: string; limit?: AiResult['limit']; error?: string }>(`/api/ai-food/job/${start.jobId}`)
+    if (job.status === 'done') return { results: job.results, note: job.note, limit: job.limit, jobId: start.jobId, left: start.left }
     if (job.status === 'error') throw new Error(job.error ?? "The AI lookup didn't work. Try again.")
   }
   throw new Error('The lookup took too long. Try again.')

@@ -1,6 +1,7 @@
 // AI food lookup (spec addition, Oct 29): search the web for a food Crisp doesn't have.
-//   POST /api/ai-food            { queries: string[] } → starts one lookup for a whole meal (1 credit), returns { jobId, left }
-//   GET  /api/ai-food/job/<id>   → { status, results: [{ query, items }], note }   (the app checks every ~1.5 s)
+//   POST /api/ai-food            { foods: [{ query, candidates }] } → starts one lookup for a meal, returns { jobId, left }
+//        Claude checks the database candidates first; only foods not there get a web search (1 credit per meal).
+//   GET  /api/ai-food/job/<id>   → { status, results: [{ query, matchId?, items, limited? }], note, limit }
 //   POST /api/ai-food/confirm    { jobId, food, index } → "Looks good": saves that item to the shared foods
 //   GET  /api/ai-food/quota      → { left, daily, bonus }
 // Nothing is saved for everyone until the person taps "Looks good".
@@ -9,9 +10,9 @@ import { HttpError, body, handler, json, randomId, route } from '../lib/http'
 import { requireSession } from '../lib/session'
 import { getProfile, stores } from '../lib/stores'
 import { recordEvent } from '../lib/events'
-import { privateMessage, quota, refundCredit, spendCredit } from '../lib/ai'
+import { quota, refundCredit, spendCheck } from '../lib/ai'
 import { env } from '../lib/http'
-import type { AiJob, CustomFood } from '../../shared/types'
+import type { AiCandidate, AiJob, CustomFood } from '../../shared/types'
 
 export const config: Config = { path: ['/api/ai-food', '/api/ai-food/*'] }
 
@@ -28,29 +29,34 @@ export default handler(async (req, url) => {
 
   if (r === '' && req.method === 'POST') {
     if (!env('ANTHROPIC_API_KEY')) throw new HttpError(503, 'ai_not_setup', "AI lookup isn't switched on yet.")
-    const b = await body<{ queries?: string[]; query?: string }>(req)
-    const queries = (Array.isArray(b.queries) ? b.queries : [b.query ?? ''])
-      .map((q) => String(q ?? '').trim().slice(0, 160))
-      .filter((q) => q.length >= 2)
-      .slice(0, 8)
-    if (!queries.length) throw new HttpError(400, 'need_query', 'Type the food you want to look up.')
-    const paidWith = await spendCredit(profile)
-    if (!paidWith) {
-      const special = await privateMessage(s.uid)
-      return json(
-        {
-          error: 'ai_limit',
-          message: special || "You've used today's AI lookups. They reset tomorrow — you can still search, Quick add or Create food.",
-          special: !!special,
-        },
-        429,
-      )
+    const b = await body<{ foods?: { query?: string; candidates?: AiCandidate[] }[] }>(req)
+    const foods = (Array.isArray(b.foods) ? b.foods : [])
+      .map((f) => ({
+        query: String(f?.query ?? '').trim().slice(0, 160),
+        candidates: (Array.isArray(f?.candidates) ? f.candidates : []).slice(0, 8).map((c) => ({
+          id: String(c.id).slice(0, 60),
+          name: String(c.name).slice(0, 120),
+          serving: String(c.serving ?? '').slice(0, 60),
+          cal: Number(c.cal) || 0,
+        })),
+      }))
+      .filter((f) => f.query.length >= 2)
+      .slice(0, 10)
+    if (!foods.length) throw new HttpError(400, 'need_query', 'Type the food you want to look up.')
+    if (!(await spendCheck(profile))) throw new HttpError(429, 'too_many', "That's a lot of lookups today — try again tomorrow.")
+    const job: AiJob & { runToken: string } = {
+      id: randomId(12),
+      uid: s.uid,
+      queries: foods.map((f) => f.query),
+      candidates: foods.map((f) => f.candidates),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      runToken: randomId(16),
     }
-    const job: AiJob & { runToken: string } = { id: randomId(12), uid: s.uid, queries, status: 'pending', paidWith, createdAt: new Date().toISOString(), runToken: randomId(16) }
     await ai.setJSON(`job/${job.id}`, job)
     // Hand off to the background function (web search can take longer than a normal request allows).
     await fetch(new URL('/api/ai-food-run', url.origin), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jobId: job.id, runToken: job.runToken }) })
-    await recordEvent(s.uid, 'ai_lookup', { paidWith, foods: queries.length })
+    await recordEvent(s.uid, 'ai_lookup', { foods: foods.length })
     return json({ jobId: job.id, left: (await quota(profile)).left })
   }
 
@@ -60,10 +66,10 @@ export default handler(async (req, url) => {
     if (job.status === 'pending' && Date.now() - Date.parse(job.createdAt) > 150_000) {
       const error = 'The lookup took too long. Your credit was not used — try again.'
       await ai.setJSON(`job/${job.id}`, { ...job, status: 'error', error })
-      await refundCredit(profile, job.paidWith)
+      if (job.paidWith) await refundCredit(profile, job.paidWith)
       return json({ status: 'error', error })
     }
-    return json({ status: job.status, results: job.results ?? [], note: job.note, error: job.error })
+    return json({ status: job.status, results: job.results ?? [], note: job.note, limit: job.limit, error: job.error })
   }
 
   if (r === 'confirm' && req.method === 'POST') {

@@ -1,9 +1,11 @@
-// "Type or say it" — write or say everything in one go; Crisp matches each food, you check the
-// matches, then add them all at once.
-// ✦ AI: switch to AI (or tap the AI button after a normal search) and the foods Crisp couldn't
-// confidently match are looked up on the web by Claude — all of them in ONE lookup (one credit per
-// meal). Foods already in the database (including ones confirmed before) never go to the AI.
-// AI results are only saved for everyone after "Looks good".
+// "Type or say it" — write or say everything in one go, check the matches, add them all at once.
+// How each food is found (cheapest first):
+//   1. Crisp's own matcher — instant, free, works offline — for foods it's sure about ("2 eggs").
+//   2. Claude checks the closest foods already in Crisp's database (incl. everything people confirmed
+//      before) — no web search, no credit, about 0.05¢.
+//   3. Only foods that truly aren't there get a web search — one credit for the whole meal.
+// Web finds are saved for everyone only after "Looks good". So the more people use Crisp, the more
+// foods are already in the database and the fewer web searches happen.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle, Circle, Lightning, Microphone, Minus, Plus, Sparkle, Stop } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
@@ -13,9 +15,9 @@ import { addToTray, trayActive } from '../lib/tray'
 import { listen, voiceSupported } from '../lib/voice'
 import { customToLib, macrosFor, type LibFood } from '../lib/foods'
 import { matchText, fitUnit, type ParsedItem } from '../lib/parse'
-import { strongMatch } from '../lib/match'
+import { fuzzySearch, strongMatch } from '../lib/match'
 import { addEntry } from '../lib/logging'
-import { coversQuery, hasUnknownWord, rememberBrand, searchBrands } from '../lib/brands'
+import { rememberBrand } from '../lib/brands'
 import { AiLimitError, aiLookup, aiQuota, confirmAiFood } from '../lib/ai'
 import { closeAllSheets, closeSheet, openSheet, toast } from '../lib/ui'
 import { errorMessage } from '../lib/api'
@@ -24,7 +26,7 @@ import { mealLabel } from '../lib/meals'
 import { track } from '../lib/store'
 import { useLibrary, QuickAddSheet } from './Log'
 import { AiItemCard, showSecretNote } from './AiLookup'
-import type { AiFoodItem, Meal } from '../../shared/types'
+import type { AiCandidate, AiFoodItem, Meal } from '../../shared/types'
 
 interface AiState {
   status: 'searching' | 'found' | 'none' | 'error'
@@ -45,22 +47,24 @@ interface Line {
   qty: number
   alternatives: LibFood[]
   include: boolean
-  /** looking this one up in store brands */
-  checking?: boolean
-  /** this line went to the AI */
+  /** waiting for the web results card (needs "Looks good") */
   ai?: AiState
-  /** confirmed from an AI lookup */
-  fromAi?: boolean
+  /** being checked against the database by Claude */
+  checking?: boolean
+  /** where the match came from */
+  source?: 'crisp' | 'database' | 'web'
 }
 
-type Mode = 'crisp' | 'ai'
-
-/** Lines Crisp didn't get (no match, or not a confident one) — what the AI button sends. */
-const needsAi = (l: Line) => !l.fromAi && !l.ai && !l.checking && (!l.food || !strongMatch(l.food, l.item.query))
+/** The closest foods Crisp has, for Claude to choose from. */
+function candidatesFor(all: LibFood[], l: Line): { foods: LibFood[]; list: AiCandidate[] } {
+  const seen = new Set<string>()
+  const foods = [...(l.food ? [l.food] : []), ...fuzzySearch(all, l.item.query, 8, { phrases: false }), ...l.alternatives].filter((f) => !seen.has(f.id) && seen.add(f.id)).slice(0, 8)
+  const list = foods.map((f) => ({ id: f.id, name: f.name, serving: f.units[0]?.label ?? '1 serving', cal: Math.round(macrosFor(f, 0, f.units[0]?.label === 'g' ? 100 : 1).cal) }))
+  return { foods, list }
+}
 
 export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const [meal, setMeal] = useState(m0)
-  const [mode, setMode] = useState<Mode>('crisp')
   const [text, setText] = useState('')
   const [lines, setLines] = useState<Line[] | null>(null)
   const [open, setOpen] = useState<number | null>(null)
@@ -82,8 +86,8 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
     [],
   )
   useEffect(() => {
-    if (mode === 'ai' && aiLeft == null) aiQuota().then((q) => setAiLeft(q.left), () => undefined)
-  }, [mode, aiLeft])
+    aiQuota().then((q) => setAiLeft(q.left), () => undefined)
+  }, [])
 
   const toggleVoice = () => {
     if (listening) {
@@ -113,41 +117,55 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const update = (key: number, patch: Partial<Line>) => setLines((ls) => (ls ? ls.map((l) => (l.key === key ? { ...l, ...patch } : l)) : ls))
   const updateAi = (key: number, patch: Partial<AiState>) => setLines((ls) => (ls ? ls.map((l) => (l.key === key && l.ai ? { ...l, ai: { ...l.ai, ...patch } } : l)) : ls))
 
-  /** Send these lines to the AI in one lookup. */
+  /** Steps 2–3: Claude checks the database for these lines, then searches the web for what's left. */
   const runAi = (targets: Line[]) => {
     if (!targets.length) return
     setAiMsg('')
     const keys = targets.map((l) => l.key)
-    setLines((ls) => (ls ? ls.map((l) => (keys.includes(l.key) ? { ...l, include: false, ai: { status: 'searching', pick: 0 } } : l)) : ls))
+    const cands = targets.map((l) => candidatesFor(all, l))
+    setLines((ls) => (ls ? ls.map((l) => (keys.includes(l.key) ? { ...l, checking: true, include: false } : l)) : ls))
     aiRun.current.cancelled = true
     const token = { cancelled: false }
     aiRun.current = token
-    track('ai_meal_lookup', { foods: targets.length, mode })
-    aiLookup(targets.map((l) => l.item.raw), token).then(
+    track('ai_meal_lookup', { foods: targets.length })
+    aiLookup(
+      targets.map((l, i) => ({ query: l.item.raw, candidates: cands[i].list })),
+      token,
+    ).then(
       (res) => {
         if (token.cancelled) return
-        setAiLeft(res.left)
         if (res.note) setAiMsg(res.note)
+        if (res.limit) {
+          if (res.limit.special) showSecretNote(res.limit.message)
+          else setAiMsg(res.limit.message)
+        }
+        aiQuota().then((q) => setAiLeft(q.left), () => undefined)
         setLines((ls) =>
           ls
             ? ls.map((l) => {
                 const fi = keys.indexOf(l.key)
                 if (fi < 0) return l
-                const items = res.results[fi]?.items ?? []
-                return { ...l, ai: items.length ? { status: 'found', items, pick: 0, jobId: res.jobId, fi } : { status: 'none', pick: 0 } }
+                const r = res.results[fi]
+                const matched = r?.matchId ? cands[fi].foods.find((f) => f.id === r.matchId) : undefined
+                if (matched) {
+                  const fit = fitUnit(matched, l.item)
+                  return { ...l, checking: false, food: fit.food, unitIndex: fit.unitIndex, qty: fit.qty, include: true, source: 'database' as const }
+                }
+                if (r?.items.length) return { ...l, checking: false, ai: { status: 'found' as const, items: r.items, pick: 0, jobId: res.jobId, fi } }
+                // Not in the database and nothing on the web (or out of lookups): keep Crisp's best guess, if any.
+                return { ...l, checking: false, include: !!l.food, ai: l.food ? undefined : { status: 'none' as const, pick: 0 } }
               })
             : ls,
         )
       },
       (e) => {
         if (token.cancelled) return
-        // Put the lines back the way they were.
-        setLines((ls) => (ls ? ls.map((l) => (keys.includes(l.key) ? { ...l, ai: undefined, include: !!l.food } : l)) : ls))
+        // Couldn't check online: fall back to Crisp's own best guesses.
+        setLines((ls) => (ls ? ls.map((l) => (keys.includes(l.key) ? { ...l, checking: false, include: !!l.food } : l)) : ls))
         if (e instanceof AiLimitError) {
-          setAiLeft(0)
           if (e.special) showSecretNote(e.message)
           else setAiMsg(e.message)
-        } else setAiMsg(errorMessage(e))
+        } else setAiMsg(`${errorMessage(e)} Showing Crisp's best guesses instead.`)
       },
     )
   }
@@ -155,54 +173,25 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const findRef = useRef<() => void>(() => undefined)
   const find = (input = textRef.current) => {
     const matched = matchText(all, input)
-    const next: Line[] = matched.map((m, i) => ({
-      key: i,
-      item: m.item,
-      food: m.best?.food ?? null,
-      unitIndex: m.best?.unitIndex ?? 0,
-      qty: m.best?.qty ?? 1,
-      alternatives: m.alternatives,
-      include: !!m.best,
-      checking: mode === 'crisp' && (!m.best || hasUnknownWord(all, m.item.query)),
-    }))
+    const next: Line[] = matched.map((m, i) => {
+      const sure = !!m.best && strongMatch(m.best.food, m.item.query)
+      return {
+        key: i,
+        item: m.item,
+        food: m.best?.food ?? null,
+        unitIndex: m.best?.unitIndex ?? 0,
+        qty: m.best?.qty ?? 1,
+        alternatives: m.alternatives,
+        include: sure,
+        source: sure ? ('crisp' as const) : undefined,
+      }
+    })
     setLines(next)
     setOpen(null)
     setAiMsg('')
-    track('typed_meal_matched', { lines: matched.length, voice: !!heardRef.current, mode })
-
-    // ✦ AI mode: anything the database doesn't have for sure goes to the AI right away (one lookup).
-    if (mode === 'ai') {
-      runAi(next.filter(needsAi))
-      return
-    }
-    // Brand names the built-in list doesn't know ("fairlife milk", "chobani") → look them up in store brands.
-    matched.forEach((m, i) => {
-      if (!(!m.best || hasUnknownWord(all, m.item.query))) return
-      searchBrands(m.item.query).then(
-        (found) => {
-          setLines((ls) =>
-            ls
-              ? ls.map((l) => {
-                  if (l.key !== i) return l
-                  const pick = found.find((f) => coversQuery(f, l.item.query)) ?? (l.food ? undefined : found[0])
-                  if (!pick) return { ...l, checking: false, alternatives: [...found.slice(0, 3), ...l.alternatives] }
-                  const fit = fitUnit(pick, l.item)
-                  return {
-                    ...l,
-                    checking: false,
-                    food: fit.food,
-                    unitIndex: fit.unitIndex,
-                    qty: fit.qty,
-                    include: true,
-                    alternatives: [...found.filter((f) => f !== pick).slice(0, 3), ...(l.food ? [l.food] : []), ...l.alternatives].slice(0, 7),
-                  }
-                })
-              : ls,
-          )
-        },
-        () => setLines((ls) => (ls ? ls.map((l) => (l.key === i ? { ...l, checking: false } : l)) : ls)),
-      )
-    })
+    track('typed_meal_matched', { lines: matched.length, voice: !!heardRef.current })
+    // Step 1 is done (Crisp's sure matches). Everything else: database check by Claude, then the web.
+    runAi(next.filter((l) => l.source !== 'crisp'))
   }
 
   const textRef = useRef(text)
@@ -216,7 +205,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
     try {
       const saved = await confirmAiFood(a.jobId, a.fi, a.pick)
       // The AI answered for exactly what was said ("2 tacos", "medium fries"), so it's 1 of that serving.
-      update(l.key, { food: customToLib(saved), unitIndex: 0, qty: 1, include: true, ai: undefined, fromAi: true, alternatives: l.food ? [l.food, ...l.alternatives] : l.alternatives })
+      update(l.key, { food: customToLib(saved), unitIndex: 0, qty: 1, include: true, ai: undefined, source: 'web', alternatives: l.food ? [l.food, ...l.alternatives] : l.alternatives })
     } catch (e) {
       updateAi(l.key, { saving: false })
       toast(errorMessage(e), { tone: 'error' })
@@ -225,8 +214,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
 
   const chosen = (lines ?? []).filter((l) => l.include && l.food && !l.ai)
   const total = useMemo(() => chosen.reduce((s, l) => s + macrosFor(l.food!, l.unitIndex, l.qty).cal, 0), [chosen])
-  const missed = (lines ?? []).filter(needsAi)
-  const aiBusy = (lines ?? []).some((l) => l.ai?.status === 'searching')
+  const aiBusy = (lines ?? []).some((l) => l.checking)
   const waiting = (lines ?? []).filter((l) => l.ai?.status === 'found').length
 
   const addAll = () => {
@@ -235,7 +223,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
       const m = macrosFor(l.food!, l.unitIndex, l.qty)
       const item = { foodId: l.food!.id, name: l.food!.name, qty: l.qty, unit: l.food!.units[l.unitIndex].label, cal: m.cal, p: m.p, c: m.c, f: m.f }
       if (toList) addToTray({ ...item, food: l.food! })
-      else addEntry(date, { ...item, meal }, l.fromAi ? 'ai' : heardRef.current ? 'voice' : 'typed', { silent: true })
+      else addEntry(date, { ...item, meal }, l.source === 'web' ? 'ai' : heardRef.current ? 'voice' : 'typed', { silent: true })
     }
     if (toList) {
       toast(`${chosen.length} food${chosen.length === 1 ? '' : 's'} added to the list`)
@@ -249,21 +237,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   return (
     <Sheet tall title="Type or say it" dirty={!!text.trim() && !lines}>
       {!toList && <MealBubble value={meal} onChange={setMeal} />}
-      <div className="mode-switch" role="radiogroup" aria-label="How to find your foods">
-        <button role="radio" aria-checked={mode === 'crisp'} className={`mode-opt${mode === 'crisp' ? ' mode-opt--on' : ''}`} onClick={() => setMode('crisp')}>
-          Crisp foods
-        </button>
-        <button role="radio" aria-checked={mode === 'ai'} className={`mode-opt mode-opt--ai${mode === 'ai' ? ' mode-opt--on' : ''}`} onClick={() => setMode('ai')}>
-          <Sparkle size={16} weight="fill" className="ai-star" aria-hidden /> AI
-        </button>
-      </div>
-      {mode === 'ai' && (
-        <p className="muted small">
-          For restaurants, brands and eating out. Crisp checks its own foods first, then the AI looks up the rest on the web — one lookup per meal.
-          {aiLeft != null && <strong className="ai-left"> {aiLeft} left today.</strong>}
-        </p>
-      )}
-      <div className={`typeit-box${listening ? ' typeit-box--live' : ''}${mode === 'ai' ? ' typeit-box--ai' : ''}`}>
+      <div className={`typeit-box${listening ? ' typeit-box--live' : ''}`}>
         <textarea
           className="input typeit-text"
           rows={4}
@@ -273,11 +247,7 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
             if (lines) setLines(null)
           }}
           placeholder={
-            listening
-              ? 'Listening… say what you ate'
-              : mode === 'ai'
-                ? 'Chick-fil-A spicy chicken sandwich, medium waffle fries, large sweet tea'
-                : '2 eggs, about half an avocado, pb toast\nMonterey Jack cheese 60g, coffee w/ milk'
+            listening ? 'Listening… say what you ate' : '2 eggs, half an avocado, toast\nChick-fil-A spicy sandwich and medium waffle fries'
           }
           aria-label="What did you eat?"
           readOnly={listening}
@@ -290,20 +260,13 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
         </button>
       )}
       {voiceErr && <Note tone="error">{voiceErr}</Note>}
-      {mode === 'crisp' && (
-        <p className="muted small">Separate foods with commas, new lines or “and”. Amounts like “2”, “1 cup”, “6 oz”, “half” or “(45 calories)” help Crisp get it right.</p>
-      )}
+      <p className="muted small">
+        Restaurants and brands work too. Amounts like “2”, “1 cup”, “6 oz”, “medium” or “(45 calories)” help.
+        {aiLeft != null && aiLeft <= 3 && <span className="ai-left"> {aiLeft} web lookup{aiLeft === 1 ? '' : 's'} left today.</span>}
+      </p>
       {!lines && !listening && (
         <Button onClick={() => find()} disabled={!text.trim() || loading}>
-          {loading ? (
-            'Loading foods…'
-          ) : mode === 'ai' ? (
-            <>
-              <Sparkle size={18} weight="fill" aria-hidden /> Find with AI
-            </>
-          ) : (
-            'Find my foods'
-          )}
+          {loading ? 'Loading foods…' : 'Find my foods'}
         </Button>
       )}
       {err && <Note tone="error">The food library didn't load. Check your connection and try again.</Note>}
@@ -327,14 +290,6 @@ export function TypeItSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
               ),
             )}
           </div>
-          {missed.length > 0 && !aiBusy && (
-            <button className="ai-btn pressable" onClick={() => runAi(missed)}>
-              <Sparkle size={20} weight="fill" className="ai-star" aria-hidden />
-              <span>
-                AI · look up {missed.length === 1 ? 'the 1 food' : `the ${missed.length} foods`} Crisp didn't get
-              </span>
-            </button>
-          )}
           {waiting > 0 && <p className="muted small center">Tap “Looks good” on the AI finds you want to add.</p>}
           <Button onClick={addAll} disabled={!chosen.length || aiBusy} className="sheet-cta">
             Add {chosen.length} food{chosen.length === 1 ? '' : 's'}
@@ -395,7 +350,7 @@ function LineRow({
       <div className="typeit-row typeit-row--miss">
         <span className="row-main">
           <span className="row-label">“{item.raw}”</span>
-          <span className="row-sub">{line.checking ? 'Checking store brands…' : 'No match in the food list'}</span>
+          <span className="row-sub">{line.checking ? 'Checking Crisp’s foods…' : 'No match in the food list'}</span>
         </span>
         <button className="link small" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} name={item.query} />)}>
           <Lightning size={14} weight="fill" aria-hidden /> Quick add
@@ -413,10 +368,17 @@ function LineRow({
         </button>
         <button className="row-main typeit-main" onClick={onToggleOpen} aria-expanded={open}>
           <span className="muted small">
-            {line.fromAi && <Sparkle size={12} weight="fill" className="ai-star" aria-label="Found by AI" />} “{item.raw}”
+            {line.source === 'web' && <Sparkle size={12} weight="fill" className="ai-star" aria-label="Found on the web" />} “{item.raw}”
           </span>
           <span className="row-label">{food.name}</span>
-          {line.checking && <span className="muted small">Checking store brands…</span>}
+          {line.checking && (
+            <span className="muted small">
+              <Sparkle size={12} weight="fill" className="ai-star ai-spin" aria-hidden /> Double-checking…
+            </span>
+          )}
+          {!line.checking && line.source === 'database' && food.custom && (
+            <span className="muted small">{food.custom.source === 'ai' ? `Saved by ${food.custom.createdByName}` : `Added by ${food.custom.createdByName}`}</span>
+          )}
           <span className="row-sub">
             {fmt(qty, 2)} × {unit.label === 'g' ? 'grams' : unit.label === 'oz' ? 'oz' : unit.label} · P {r0(m.p)} · C {r0(m.c)} · F {r0(m.f)}
           </span>

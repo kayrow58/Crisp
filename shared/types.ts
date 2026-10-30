@@ -170,21 +170,38 @@ export interface AiFoodItem {
 
 export interface AiFoodResult {
   query: string
+  /** found on the web (needs "Looks good") */
   items: AiFoodItem[]
+  /** Claude matched it to a food already in Crisp's database (no web search, no credit) */
+  matchId?: string
+  /** out of web lookups for today, so this one wasn't searched */
+  limited?: boolean
+}
+
+/** A food from Crisp's database that might be what the person meant (sent along for Claude to check). */
+export interface AiCandidate {
+  id: string
+  name: string
+  serving: string
+  cal: number
 }
 
 export interface AiJob {
   id: string
   uid: string
-  /** the foods sent in one lookup (one credit for the whole meal) */
+  /** the foods sent in one lookup */
   queries: string[]
+  /** for each food, the closest foods already in Crisp's database */
+  candidates?: AiCandidate[][]
+  /** set when a web search was needed but the person is out of lookups */
+  limit?: { message: string; special: boolean }
   status: 'pending' | 'done' | 'error'
   /** what was found for each query, in the same order */
   results?: AiFoodResult[]
   note?: string
   error?: string
-  /** which credit this used, so a failed lookup can be refunded */
-  paidWith: 'daily' | 'bonus'
+  /** which credit the web search used (none when everything matched the database) */
+  paidWith?: 'daily' | 'bonus'
   createdAt: string
   confirmed?: string[]
 }

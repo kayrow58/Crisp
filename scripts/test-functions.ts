@@ -103,7 +103,7 @@ r = await call(sync, `/api/sync?days=${date}`, { tok: tSam })
 // --- AI lookup (no ANTHROPIC_API_KEY here, so only credits, admin and safety checks)
 const aiFood = (await import('../netlify/functions/ai-food.mts')).default
 const aiLib = await import('../netlify/lib/ai')
-r = await call(aiFood, '/api/ai-food', { tok: tSam, body: { queries: ['chick-fil-a sandwich', 'medium waffle fries'] } })
+r = await call(aiFood, '/api/ai-food', { tok: tSam, body: { foods: [{ query: 'chick-fil-a sandwich', candidates: [] }] } })
 check(r.status === 503 && r.body.error === 'ai_not_setup', 'AI lookup says it is not set up when the API key is missing')
 r = await call(aiFood, '/api/ai-food/quota', { tok: tSam })
 check(r.status === 200 && r.body.left === 10 && r.body.daily === 10, 'everyone starts with 10 AI lookups a day')
@@ -124,6 +124,13 @@ check(r.status === 404, 'unknown AI lookups are refused')
   check(parsed.foods.length === 3 && parsed.foods[0].items.length === 1 && parsed.foods[0].items[0].cal === 460 && parsed.foods[1].items[0].cal === 420 && parsed.foods[2].items.length === 0 && parsed.note === 'Regular sizes', 'one AI answer covers a whole meal, in order, with junk dropped')
   const est = aiLib.parseAnswer('{"foods":[{"items":[{"name":"Pad thai","serving":"1 plate","cal":800,"p":30,"c":90,"f":30}]}]}', ['pad thai'])
   check(est.foods[0].items[0].estimate === true, 'answers without a source are marked as estimates')
+  const cands = [
+    [{ id: 'c:abc', name: 'Chick-fil-A Waffle Potato Fries', serving: 'medium', cal: 420 }, { id: 'u:f71401000', name: 'French fries', serving: '1 serving', cal: 365 }],
+    [{ id: 'u:01123', name: 'Egg, whole', serving: '1 large', cal: 72 }],
+    [],
+  ]
+  const m = aiLib.parseMatches('{"matches":["c:abc","u:made-up",null]}', cands)
+  check(m[0] === 'c:abc' && m[1] === null && m[2] === null, 'database matches only accept foods that were actually offered')
 }
 
 // --- foods

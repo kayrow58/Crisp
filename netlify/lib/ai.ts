@@ -2,7 +2,7 @@
 import { HttpError, env } from './http'
 import { stores } from './stores'
 import { dayKey } from '../../shared/dates'
-import type { AiFoodItem, AiFoodResult, Profile } from '../../shared/types'
+import type { AiCandidate, AiFoodItem, AiFoodResult, Profile } from '../../shared/types'
 
 export const DAILY_AI_LOOKUPS = 10
 export const AI_MODEL = 'claude-haiku-5-5'
@@ -67,6 +67,7 @@ interface Block {
   text?: string
 }
 
+/** Web search for foods that aren't in the database. About one search per food (fewer when they share a restaurant). */
 export async function askClaude(queries: string[]): Promise<{ foods: AiFoodResult[]; note?: string }> {
   const key = env('ANTHROPIC_API_KEY')
   if (!key) throw new HttpError(503, 'ai_not_setup', 'AI lookup is not set up yet (missing ANTHROPIC_API_KEY).')
@@ -89,7 +90,7 @@ export async function askClaude(queries: string[]): Promise<{ foods: AiFoodResul
           {
             type: 'web_search_20260318',
             name: 'web_search',
-            max_uses: Math.min(8, 2 + queries.length * 2),
+            max_uses: Math.min(4, queries.length),
             allowed_callers: ['direct'],
             user_location: { type: 'approximate', country: 'US' },
           },
@@ -150,4 +151,63 @@ export function parseAnswer(text: string, queries: string[]): { foods: AiFoodRes
   const got = parsed.foods ?? (parsed.items ? [{ query: queries[0], items: parsed.items }] : [])
   const foods = queries.map((q, i) => ({ query: q, items: cleanItems(got[i]?.items) }))
   return { foods, note: parsed.note ? String(parsed.note).slice(0, 240) : undefined }
+}
+
+// ---------- step 2: does Crisp's database already have it? (no web search, ~0.05¢) ----------
+const MATCH_SYSTEM = `You match foods a person ate to foods already in a calorie app's database.
+For each numbered food you get a list of candidates (id · name · serving · calories).
+Pick the candidate that is the SAME food: same item, and the same restaurant/brand if one was named.
+Different amounts or sizes of the same item are fine (the app adjusts the amount) — but a restaurant item
+must match that restaurant, and a specific product must match that product. If none is the same food, answer null.
+Reply with ONLY JSON: {"matches":["<id or null>", ...]} — one entry per food, in order.`
+
+export async function matchWithDatabase(queries: string[], candidates: AiCandidate[][]): Promise<(string | null)[]> {
+  const key = env('ANTHROPIC_API_KEY')
+  if (!key) throw new HttpError(503, 'ai_not_setup', 'AI lookup is not set up yet (missing ANTHROPIC_API_KEY).')
+  const list = queries
+    .map((q, i) => {
+      const c = candidates[i] ?? []
+      return `${i + 1}. "${q}"\n${c.length ? c.map((x) => `   - ${x.id} · ${x.name} · ${x.serving} · ${Math.round(x.cal)} cal`).join('\n') : '   (no candidates)'}`
+    })
+    .join('\n')
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 45_000)
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: ctrl.signal,
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: AI_MODEL, max_tokens: 400, system: MATCH_SYSTEM, messages: [{ role: 'user', content: list }] }),
+  }).finally(() => clearTimeout(timer))
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const data = (await res.json()) as { content: Block[] }
+  return parseMatches(
+    data.content.map((b) => b.text ?? '').join(''),
+    candidates,
+  )
+}
+
+/** Read {"matches":[...]} and only accept ids that were actually offered for that food. */
+export function parseMatches(text: string, candidates: AiCandidate[][]): (string | null)[] {
+  let ids: unknown[] = []
+  try {
+    const raw = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
+    ids = (JSON.parse(raw) as { matches?: unknown[] }).matches ?? []
+  } catch {
+    /* treat as no matches */
+  }
+  return candidates.map((c, i) => {
+    const id = ids[i]
+    return typeof id === 'string' && c.some((x) => x.id === id) ? id : null
+  })
+}
+
+// Soft cap on database checks per day (they're nearly free, this just stops runaway use).
+export const DAILY_DB_CHECKS = 150
+export async function spendCheck(p: Profile): Promise<boolean> {
+  const st = stores.ai()
+  const k = `checks/${p.id}/${today(p)}`
+  const n = Number((await st.get(k, { type: 'text' })) ?? 0) || 0
+  if (n >= DAILY_DB_CHECKS) return false
+  await st.set(k, String(n + 1))
+  return true
 }

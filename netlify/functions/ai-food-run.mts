@@ -1,9 +1,11 @@
-// Background half of the AI food lookup: asks Claude (with web search) and stores the answer
-// on the job. Runs up to 15 minutes; the app polls /api/ai-food/job/<id> for the result.
+// Background half of the food lookup ("Type or say it"):
+//   1. Claude checks the closest foods already in Crisp's database (no web search, no credit).
+//   2. Only foods that truly aren't there get a web search — one credit for the whole meal.
+// Runs up to 15 minutes; the app polls /api/ai-food/job/<id> for the result.
 import type { Config } from '@netlify/functions'
 import { stores, getProfile } from '../lib/stores'
-import { askClaude, refundCredit } from '../lib/ai'
-import type { AiJob } from '../../shared/types'
+import { askClaude, matchWithDatabase, privateMessage, refundCredit, spendCredit } from '../lib/ai'
+import type { AiFoodResult, AiJob } from '../../shared/types'
 
 export const config: Config = { path: '/api/ai-food-run', background: true }
 
@@ -12,17 +14,41 @@ export default async (req: Request) => {
   const ai = stores.ai()
   const job = (await ai.get(`job/${jobId}`, { type: 'json' })) as (AiJob & { runToken?: string }) | null
   if (!job || job.status !== 'pending' || !runToken || job.runToken !== runToken) return
+  const profile = await getProfile(job.uid)
+  if (!profile) return
+  let paidWith: AiJob['paidWith']
   try {
-    const { foods, note } = await askClaude(job.queries)
-    await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'done', results: foods, note })
-    if (!foods.some((f) => f.items.length)) {
-      const p = await getProfile(job.uid)
-      if (p) await refundCredit(p, job.paidWith) // nothing found: don't charge a credit
+    const candidates = job.candidates ?? job.queries.map(() => [])
+    // 1. Database first.
+    const matches = candidates.some((c) => c.length) ? await matchWithDatabase(job.queries, candidates) : job.queries.map(() => null)
+    const results: AiFoodResult[] = job.queries.map((query, i) => ({ query, items: [], matchId: matches[i] ?? undefined }))
+    const missing = results.map((r, i) => (r.matchId ? -1 : i)).filter((i) => i >= 0)
+    let note: string | undefined
+    let limit: AiJob['limit']
+    // 2. Web search only for what's left (one credit for all of them).
+    if (missing.length) {
+      paidWith = (await spendCredit(profile)) ?? undefined
+      if (!paidWith) {
+        const special = await privateMessage(profile.id)
+        limit = {
+          message: special || "You've used today's web lookups — they reset tomorrow. Foods already in Crisp still work.",
+          special: !!special,
+        }
+        for (const i of missing) results[i].limited = true
+      } else {
+        const web = await askClaude(missing.map((i) => job.queries[i]))
+        note = web.note
+        missing.forEach((i, k) => (results[i].items = web.foods[k]?.items ?? []))
+        if (!missing.some((i) => results[i].items.length)) {
+          await refundCredit(profile, paidWith) // nothing found: don't charge
+          paidWith = undefined
+        }
+      }
     }
+    await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'done', results, note, limit, paidWith })
   } catch (e) {
     console.error('ai-food-run', e)
-    await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'error', error: "The AI lookup didn't work just now. Your credit was not used — try again." })
-    const p = await getProfile(job.uid)
-    if (p) await refundCredit(p, job.paidWith)
+    if (paidWith) await refundCredit(profile, paidWith)
+    await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'error', paidWith: undefined, error: "The lookup didn't work just now. No credit was used — try again." })
   }
 }
