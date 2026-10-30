@@ -100,6 +100,16 @@ r = await call(sync, `/api/sync?days=${date}`, { tok: tSam })
   check(w.length === 1 && w[0].type === 'Exercise' && w[0].minutes === 42 && w[0].cal > 200 && w[0].cal < 612, `exercise keeps only the burn beyond walking (${w[0]?.cal} cal of 612)`)
 }
 
+// --- edits to synced days stick
+{
+  const key = `sam1/days/${date}`
+  const cur = (await stores.userdata().get(key, { type: 'json' })) as any
+  await stores.userdata().setJSON(key, { ...cur, steps: { count: 5000, source: 'manual', updatedAt: new Date().toISOString() }, workouts: [{ id: 'm1', type: 'Exercise', minutes: 20, cal: 100, source: 'manual', at: 'x' }], fitnessLock: { exercise: true, at: new Date().toISOString() } })
+  await call(fitness, '/api/fitness', { body: { code: 'samcode456', steps: 9999, date, activeCalories: 900, exerciseMinutes: 60 } })
+  const after = (await stores.userdata().get(key, { type: 'json' })) as any
+  check(after.steps.count === 5000 && after.workouts.length === 1 && after.workouts[0].id === 'm1', 'a sync never overwrites steps or exercise the person edited')
+}
+
 // --- AI lookup (no ANTHROPIC_API_KEY here, so only credits, admin and safety checks)
 const aiFood = (await import('../netlify/functions/ai-food.mts')).default
 const aiLib = await import('../netlify/lib/ai')

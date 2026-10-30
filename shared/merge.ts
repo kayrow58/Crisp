@@ -12,7 +12,10 @@ export function mergeDay(local: DayDoc, remote: DayDoc | null): DayDoc {
   const deleted = new Set([...(local.deleted ?? []), ...(remote.deleted ?? [])])
   // Shortcut workouts always come from the server copy.
   const localManual = local.workouts.filter((w) => w.source !== 'shortcut')
-  const remoteShortcut = remote.workouts.filter((w) => w.source === 'shortcut')
+  // Latest change wins (locking when someone edits synced exercise, or unlocking "use Apple Fitness again").
+  const lock = !local.fitnessLock ? remote.fitnessLock : !remote.fitnessLock ? local.fitnessLock : local.fitnessLock.at >= remote.fitnessLock.at ? local.fitnessLock : remote.fitnessLock
+  // Synced workouts come from the server copy — unless the person edited this day's exercise.
+  const remoteShortcut = lock?.exercise ? local.workouts.filter((w) => w.source === 'shortcut' && !deleted.has(w.id)) : remote.workouts.filter((w) => w.source === 'shortcut' && !deleted.has(w.id))
   const remoteManual = remote.workouts.filter((w) => w.source !== 'shortcut')
   const steps =
     !local.steps ? remote.steps : !remote.steps ? local.steps : local.steps.updatedAt >= remote.steps.updatedAt ? local.steps : remote.steps
@@ -22,6 +25,7 @@ export function mergeDay(local: DayDoc, remote: DayDoc | null): DayDoc {
     workouts: [...remoteShortcut, ...mergeById(localManual, remoteManual, deleted)],
     steps,
     deleted: [...deleted].slice(-500),
+    ...(lock ? { fitnessLock: lock } : {}),
   }
 }
 

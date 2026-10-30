@@ -94,6 +94,8 @@ export interface DayDoc {
   steps: { count: number; source: 'manual' | 'shortcut'; updatedAt: string } | null
   /** ids of deleted foods/workouts, so merges between two phones don't bring them back */
   deleted: string[]
+  /** the person edited this day's synced exercise, so Apple Fitness syncs leave it alone */
+  fitnessLock?: { exercise: boolean; at: string }
 }
 
 export interface WeightEntry {

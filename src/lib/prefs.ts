@@ -13,6 +13,8 @@ export interface Prefs {
   syncTime: string
   shortcutAdded: boolean
   shortcutConnected: boolean
+  /** the 'stop the microphone asking' tip was seen */
+  micTipDone: boolean
 }
 
 const DEFAULTS: Prefs = {
@@ -25,6 +27,7 @@ const DEFAULTS: Prefs = {
   syncTime: '21:00',
   shortcutAdded: false,
   shortcutConnected: false,
+  micTipDone: false,
 }
 
 const KEY = 'crisp.prefs'

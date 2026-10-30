@@ -2867,3 +2867,60 @@ select.input {
 .ai-bar-hint {
   text-align: center;
 }
+
+/* ---------- Fitness: day switcher + history ---------- */
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.day-nav-label {
+  font-size: var(--t-headline);
+}
+.history-day {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+/* ---------- microphone tip ---------- */
+.mic-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-input);
+  background: color-mix(in srgb, var(--cyan) 10%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+}
+.mic-tip-icon {
+  color: var(--cyan);
+  flex: 0 0 auto;
+}
+.mic-tip-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mic-steps {
+  margin: 0;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  font-weight: 600;
+}
+.history-day .list-title {
+  margin: 0;
+  padding: 0;
+}
+.history-day {
+  padding: var(--s3) 4px var(--s2);
+}
+.day-nav .icon-btn:disabled {
+  opacity: 0.25;
+}

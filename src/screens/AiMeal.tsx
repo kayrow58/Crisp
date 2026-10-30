@@ -23,6 +23,8 @@ import { fmt, r0 } from '../lib/format'
 import { mealLabel } from '../lib/meals'
 import { track } from '../lib/store'
 import { useLibrary } from './Log'
+import { usePrefs } from '../lib/prefs'
+import { MicTipCard } from '../components/MicTip'
 import { aiName, showSecretNote } from './AiLookup'
 import type { AiCandidate, AiFoodItem, Meal } from '../../shared/types'
 
@@ -116,6 +118,8 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const toList = trayActive()
   const [listening, setListening] = useState(false)
   const [voiceErr, setVoiceErr] = useState('')
+  const prefs = usePrefs()
+  const [triedMic, setTriedMic] = useState(false)
   const stopRef = useRef<(() => void) | null>(null)
   const before = useRef('')
   const usedVoice = useRef(false)
@@ -140,6 +144,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
       return
     }
     setVoiceErr('')
+    setTriedMic(true)
     before.current = text.trim() ? `${text.trim().replace(/,$/, '')}, ` : ''
     setListening(true)
     usedVoice.current = true
@@ -316,6 +321,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
             )}
           </div>
           {voiceErr && <Note tone="error">{voiceErr}</Note>}
+          {triedMic && !prefs.micTipDone && <MicTipCard />}
           {hasText && !listening ? (
             <button className="ai-go pressable" onClick={find} disabled={loading}>
               <Sparkle size={20} weight="fill" className="ai-star" aria-hidden />

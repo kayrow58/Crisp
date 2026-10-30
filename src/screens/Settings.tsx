@@ -7,6 +7,7 @@ import {
   Heartbeat,
   Key,
   Lightning,
+  Microphone,
   Palette,
   Ruler,
   ScanSmiley,
@@ -19,7 +20,7 @@ import { PushedScreen, TabScreen } from '../components/Screen'
 import { Button, Field, Group, Note, Row, Segmented, Toggle } from '../components/ui'
 import { getState, latestWeightKg, refresh, signOut, track, updateProfile, useStore } from '../lib/store'
 import { setPref, usePrefs, type Theme } from '../lib/prefs'
-import { confirm, pushScreen, toast } from '../lib/ui'
+import { confirm, openSheet, pushScreen, toast } from '../lib/ui'
 import { CM_PER_IN, healthyRangeKg, isBelowFloor, isBelowHealthy, maintenanceFor, suggestTargets } from '../../shared/calc'
 import type { ActivityLevel, ActivityMode, Goal, Sex, Targets, Units } from '../../shared/types'
 import { fmt, fromDisplayWeight, showHeight, showWeight, timeAgo, toDisplayWeight, weightUnit } from '../lib/format'
@@ -30,6 +31,7 @@ import { ACTIVITY_LABELS } from './Onboarding'
 import { Admin } from './Admin'
 import { SHORTCUT_URL } from '../config'
 import { ChipRow } from '../components/Pickers'
+import { MicTipSheet } from '../components/MicTip'
 import { SHORTCUT_NAME, runCrispSync } from '../lib/fitnessSync'
 
 export function Settings() {
@@ -117,6 +119,9 @@ export function Settings() {
         <Row icon={Heartbeat} label="Connect Apple Fitness" value={p.fitnessLastSync ? `Synced ${timeAgo(p.fitnessLastSync)}` : undefined} onClick={() => pushScreen(<ConnectFitness />)} />
       </Group>
 
+      <Group title="Help">
+        <Row icon={Microphone} label="Microphone keeps asking?" onClick={() => openSheet(<MicTipSheet />)} />
+      </Group>
       <Group title="Security">
         <FaceIdRow />
         <Row icon={Key} label="Change password" onClick={() => pushScreen(<ChangePassword />)} />

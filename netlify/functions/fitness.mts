@@ -76,8 +76,9 @@ export default handler(async (req) => {
     const day = cur ?? emptyDay(date)
     return {
       ...day,
-      steps: steps > 0 ? { count: steps, source: 'shortcut', updatedAt: now } : day.steps,
-      workouts: [...day.workouts.filter((w) => w.source !== 'shortcut'), ...list],
+      // Numbers the person changed by hand stay as they are.
+      steps: steps > 0 && day.steps?.source !== 'manual' ? { count: steps, source: 'shortcut', updatedAt: now } : day.steps,
+      workouts: day.fitnessLock?.exercise ? day.workouts : [...day.workouts.filter((w) => w.source !== 'shortcut'), ...list],
     }
   })
 
