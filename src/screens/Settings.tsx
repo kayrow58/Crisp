@@ -30,6 +30,7 @@ import { ACTIVITY_LABELS } from './Onboarding'
 import { Admin } from './Admin'
 import { SHORTCUT_URL } from '../config'
 import { ChipRow } from '../components/Pickers'
+import { SHORTCUT_NAME, runCrispSync } from '../lib/fitnessSync'
 
 export function Settings() {
   const p = useStore((s) => s.profile)!
@@ -417,7 +418,6 @@ function ActivityModeScreen() {
   )
 }
 
-const SHORTCUT_NAME = 'Crisp Sync'
 const SYNC_TIMES = ['20:00', '21:00', '22:00', '23:00']
 const timeLabel = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number)
@@ -450,9 +450,7 @@ export function ConnectFitness() {
     } catch {
       /* not needed */
     }
-    setPref('shortcutConnected', true)
-    track('fitness_connect_tapped')
-    window.location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(code)}`
+    runCrispSync('connect')
   }
 
   return (

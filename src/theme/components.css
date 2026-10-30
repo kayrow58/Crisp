@@ -2337,3 +2337,27 @@ select.input {
 .sheet-wrap--kb .sheet--tall {
   height: calc(100% - 8px);
 }
+
+/* ---------- Fitness: sync now ---------- */
+.sync-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+.sync-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 60px;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--cyan) 10%, var(--card));
+  border: 1.5px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  text-align: left;
+}
+.sync-icon {
+  color: var(--cyan);
+  flex: 0 0 auto;
+}

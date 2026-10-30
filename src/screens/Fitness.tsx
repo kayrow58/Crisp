@@ -1,6 +1,7 @@
 // Fitness: Today | History, steps, workouts, Apple Fitness sync status (spec §4.5).
 import { useEffect, useState } from 'react'
-import { Barbell, Sneaker } from '@phosphor-icons/react'
+import { ArrowsClockwise, Barbell, Sneaker } from '@phosphor-icons/react'
+import { runCrispSync } from '../lib/fitnessSync'
 import { TabScreen } from '../components/Screen'
 import { Sheet } from '../components/Sheet'
 import { SwipeRow } from '../components/SwipeRow'
@@ -18,8 +19,15 @@ export function Fitness() {
   const [view, setView] = useState<'today' | 'history'>('today')
   const profile = useStore((s) => s.profile)
   const last = profile?.fitnessLastSync
+  // Back from the Shortcuts app after a sync: pull the new numbers right away.
+  useEffect(() => {
+    const on = () => document.visibilityState === 'visible' && void refresh()
+    document.addEventListener('visibilitychange', on)
+    return () => document.removeEventListener('visibilitychange', on)
+  }, [])
   return (
-    <TabScreen title="Fitness" onRefresh={refresh} right={last ? <span className="muted small">⟳ Synced {timeAgo(last)}</span> : undefined}>
+    <TabScreen title="Fitness" onRefresh={refresh}>
+      <SyncButton last={last} />
       <Segmented
         label="View"
         value={view}
@@ -31,6 +39,26 @@ export function Fitness() {
       />
       {view === 'today' ? <Today /> : <History />}
     </TabScreen>
+  )
+}
+
+/** Runs the Crisp Sync Shortcut now (same as the nightly automation). */
+function SyncButton({ last }: { last?: string }) {
+  return (
+    <div className="sync-wrap">
+      <button className="sync-btn pressable" onClick={() => runCrispSync('fitness')} aria-label="Sync Apple Fitness now">
+        <ArrowsClockwise size={20} weight="bold" className="sync-icon" aria-hidden />
+        <span className="row-main">
+          <strong>Sync Apple Fitness</strong>
+          <span className="muted small">{last ? `Last synced ${timeAgo(last)}` : 'Not synced yet'}</span>
+        </span>
+      </button>
+      {!last && (
+        <button className="link small" onClick={() => pushScreen(<ConnectFitness />)}>
+          First time? Set up the Crisp Sync Shortcut
+        </button>
+      )}
+    </div>
   )
 }
 
