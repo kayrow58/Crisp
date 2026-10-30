@@ -100,6 +100,32 @@ r = await call(sync, `/api/sync?days=${date}`, { tok: tSam })
   check(w.length === 1 && w[0].type === 'Exercise' && w[0].minutes === 42 && w[0].cal > 200 && w[0].cal < 612, `exercise keeps only the burn beyond walking (${w[0]?.cal} cal of 612)`)
 }
 
+// --- AI lookup (no ANTHROPIC_API_KEY here, so only credits, admin and safety checks)
+const aiFood = (await import('../netlify/functions/ai-food.mts')).default
+const aiLib = await import('../netlify/lib/ai')
+r = await call(aiFood, '/api/ai-food', { tok: tSam, body: { queries: ['chick-fil-a sandwich', 'medium waffle fries'] } })
+check(r.status === 503 && r.body.error === 'ai_not_setup', 'AI lookup says it is not set up when the API key is missing')
+r = await call(aiFood, '/api/ai-food/quota', { tok: tSam })
+check(r.status === 200 && r.body.left === 10 && r.body.daily === 10, 'everyone starts with 10 AI lookups a day')
+for (let i = 0; i < 10; i++) await aiLib.spendCredit(sam)
+check((await aiLib.spendCredit(sam)) === null, 'the 11th lookup in a day is refused')
+r = await call(admin, '/api/admin/ai-bonus', { tok: tKay, body: { uid: 'sam1', add: 5 } })
+check(r.status === 200 && r.body.left === 5 && r.body.bonus === 5, 'admin can give +5 AI lookups')
+check((await aiLib.spendCredit(sam)) === 'bonus', 'bonus lookups are used after the daily ones')
+r = await call(admin, '/api/admin/ai-message', { tok: tKay, body: { uid: 'sam1', message: 'Love you! Ask me for more 💕' } })
+check(r.status === 200 && (await aiLib.privateMessage('sam1')) === 'Love you! Ask me for more 💕', 'admin can save a private out-of-lookups note')
+r = await call(admin, '/api/admin/ai-bonus', { tok: tSam, body: { uid: 'sam1', add: 50 } })
+check(r.status === 403, 'non-admins cannot give themselves lookups')
+r = await call(aiFood, '/api/ai-food/job/nope', { tok: tSam })
+check(r.status === 404, 'unknown AI lookups are refused')
+{
+  const qs = ['chick-fil-a spicy chicken sandwich', 'medium waffle fries', 'mystery thing']
+  const parsed = aiLib.parseAnswer('Found them.\n```json\n{"foods":[{"query":"x","items":[{"name":"Spicy Chicken Sandwich","brand":"Chick-fil-A","serving":"1 sandwich","servingGrams":214,"cal":460,"p":28,"c":45,"f":19,"estimate":false,"sourceUrl":"https://www.chick-fil-a.com/menu"},{"name":"x","cal":"lots"}]},{"items":[{"name":"Waffle Potato Fries","brand":"Chick-fil-A","serving":"medium","cal":420,"p":5,"c":45,"f":24,"sourceUrl":"https://www.chick-fil-a.com/fries"}]},{"items":[]}],"note":"Regular sizes"}\n```', qs)
+  check(parsed.foods.length === 3 && parsed.foods[0].items.length === 1 && parsed.foods[0].items[0].cal === 460 && parsed.foods[1].items[0].cal === 420 && parsed.foods[2].items.length === 0 && parsed.note === 'Regular sizes', 'one AI answer covers a whole meal, in order, with junk dropped')
+  const est = aiLib.parseAnswer('{"foods":[{"items":[{"name":"Pad thai","serving":"1 plate","cal":800,"p":30,"c":90,"f":30}]}]}', ['pad thai'])
+  check(est.foods[0].items[0].estimate === true, 'answers without a source are marked as estimates')
+}
+
 // --- foods
 r = await call(foods, '/api/foods', { tok: tSam, body: { name: 'Quest bar', serving: '1 bar', cal: 190, p: 21, c: 22, f: 8 } })
 check(r.status === 200 && r.body.food.createdByName === 'Samuel', 'custom food created with creator name')

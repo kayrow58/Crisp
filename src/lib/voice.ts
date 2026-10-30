@@ -28,6 +28,10 @@ const Ctor = (): RecognizerCtor | undefined => {
 
 export const voiceSupported = () => typeof window !== 'undefined' && !!Ctor()
 
+// One recognizer for the whole time Crisp is open: iPhone asks for microphone permission per
+// recognizer, so reusing it means you're asked once instead of every time you tap the mic.
+let shared: Recognizer | null = null
+
 /**
  * Start listening. onText gets everything heard so far (finished phrases + the phrase in progress).
  * Returns stop(). Each finished phrase ends with ", " so foods come out as a list.
@@ -39,7 +43,7 @@ export function listen(opts: { onText: (heard: string) => void; onEnd: () => voi
     opts.onEnd()
     return () => undefined
   }
-  const r = new R()
+  const r = (shared ??= new R())
   r.lang = navigator.language || 'en-US'
   r.continuous = true
   r.interimResults = true

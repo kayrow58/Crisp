@@ -10,6 +10,7 @@ import { Button, Card, EmptyState, Field, Note, Segmented } from '../components/
 import { dayStats, useToday } from '../lib/derived'
 import { getDay, getState, list, refresh, setDoc, track, updateProfile, useList, useStore } from '../lib/store'
 import { closeSheet, openSheet, showOverlay, toast } from '../lib/ui'
+import { InfoSheet } from '../components/InfoSheet'
 import { usePrefs } from '../lib/prefs'
 import { dayLabel, fmt, fromDisplayWeight, newId, showWeight, toDisplayWeight, weightUnit } from '../lib/format'
 import { addDays } from '../../shared/dates'
@@ -99,7 +100,6 @@ export function Weight() {
 function EstimateCard({ today }: { today: string }) {
   const profile = useStore((s) => s.profile)
   useStore((s) => s.docs) // re-render as days change
-  const [info, setInfo] = useState(false)
   const estimate = (d: string) => {
     const day = getDay(d)
     if (!day.foods.length) return null
@@ -117,8 +117,25 @@ function EstimateCard({ today }: { today: string }) {
   return (
     <Card className="estimate">
       <div className="estimate-head">
-        <span className="muted small">Estimated from your logs</span>
-        <button className="icon-btn" onClick={() => setInfo(!info)} aria-label="About this estimate" aria-expanded={info}>
+        <span className="muted small">Estimated change</span>
+        <button
+          className="icon-btn"
+          onClick={() =>
+            openSheet(
+              <InfoSheet title="Estimated change">
+                <p>This estimates how your weight may change based on what you log.</p>
+                <p className="muted">
+                  How it works: (calories eaten − your maintenance calories, including activity) ÷ 3,500 calories per pound.
+                </p>
+                <p className="muted">
+                  It's only as accurate as your food and activity logging and your maintenance calories. Daily weigh-ins also move with water, salt and other
+                  factors, so the scale won't match it day to day.
+                </p>
+              </InfoSheet>,
+            )
+          }
+          aria-label="About this estimate"
+        >
           <Info size={18} />
         </button>
       </div>
@@ -127,11 +144,6 @@ function EstimateCard({ today }: { today: string }) {
         {todayLb != null && week.length > 0 && ' · '}
         {week.length > 0 && <span>{show(week.reduce((a, b) => a + b, 0))} this week</span>}
       </p>
-      <p className="muted small">
-        This is an estimate. It's only as accurate as your food and activity logging and your maintenance calories. Daily weigh-ins also move with water, salt, and other
-        factors.
-      </p>
-      {info && <p className="muted small">How it works: (calories eaten − maintenance including activity) ÷ 3,500 calories per pound.</p>}
     </Card>
   )
 }

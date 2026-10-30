@@ -178,6 +178,12 @@ export function Admin() {
             <b>{f.customFoods30}</b>
           </li>
           <li>
+            <span>✦ AI lookups · confirmed</span>
+            <b>
+              {f.aiLookups30 ?? 0} · {f.aiConfirmed30 ?? 0}
+            </b>
+          </li>
+          <li>
             <span>Weigh-ins</span>
             <b>{f.weightsLogged30}</b>
           </li>
@@ -300,6 +306,7 @@ function PersonCard({ p, recent }: { p: Person; recent: Ev[] }) {
           ))}
         </ul>
       )}
+      <AiCredits uid={p.id} name={p.firstName} />
       {!full ? (
         <Button kind="secondary" busy={loading} onClick={() => void loadFull()}>
           Show full data
@@ -384,5 +391,68 @@ function InviteCode({ initial }: { initial: string }) {
         Save code
       </Button>
     </section>
+  )
+}
+
+/** AI lookups for one person: today's use, +5 bonus, and a private note shown only to them when they run out. */
+function AiCredits({ uid, name }: { uid: string; name: string }) {
+  const [q, setQ] = useState<{ used: number; daily: number; bonus: number; left: number; message: string } | null>(null)
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState<'add' | 'msg' | null>(null)
+  useEffect(() => {
+    api<NonNullable<typeof q>>(`/api/admin/ai?uid=${encodeURIComponent(uid)}`).then(
+      (r) => {
+        setQ(r)
+        setMsg(r.message)
+      },
+      () => undefined,
+    )
+  }, [uid])
+  const add = async () => {
+    setBusy('add')
+    try {
+      const r = await api<NonNullable<typeof q>>('/api/admin/ai-bonus', { body: { uid, add: 5 } })
+      setQ(r)
+      toast(`${name} has ${r.left} AI lookups left`)
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    } finally {
+      setBusy(null)
+    }
+  }
+  const saveMsg = async () => {
+    setBusy('msg')
+    try {
+      await api('/api/admin/ai-message', { body: { uid, message: msg } })
+      toast(msg.trim() ? 'Private note saved' : 'Private note removed')
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    } finally {
+      setBusy(null)
+    }
+  }
+  if (!q) return null
+  return (
+    <div className="admin-ai">
+      <ul className="kv">
+        <li>
+          <span>✦ AI lookups today</span>
+          <b>
+            {q.used}/{q.daily}
+            {q.bonus ? ` · +${q.bonus} bonus` : ''}
+          </b>
+        </li>
+      </ul>
+      <Button kind="secondary" busy={busy === 'add'} onClick={() => void add()}>
+        + 5 AI lookups
+      </Button>
+      <label className="field">
+        <span className="field-label">Private note when {name} runs out of AI lookups</span>
+        <textarea className="input admin-ai-msg" rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Only they see this. Leave empty for the normal message." />
+      </label>
+      <Button kind="secondary" busy={busy === 'msg'} onClick={() => void saveMsg()} disabled={msg.trim() === q.message}>
+        Save note
+      </Button>
+    </div>
   )
 }

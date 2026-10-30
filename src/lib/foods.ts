@@ -51,7 +51,7 @@ export function loadLibrary(): Promise<LibFood[]> {
 export function customToLib(c: CustomFood): LibFood {
   return {
     id: `c:${c.id}`,
-    name: c.name,
+    name: c.brand && !c.name.toLowerCase().startsWith(c.brand.toLowerCase()) ? `${c.brand} ${c.name}` : c.name,
     perServing: { cal: c.cal, p: c.p, c: c.c, f: c.f },
     units: [{ label: c.serving || '1 serving' }],
     featured: true,

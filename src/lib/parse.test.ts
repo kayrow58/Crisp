@@ -95,3 +95,11 @@ describe('calorie notes and amounts', () => {
     expect(splitFoods('a splash of half and half')).toEqual(['a splash of half and half'])
   })
 })
+
+describe('words that end like amounts', () => {
+  it('does not read "oatmeal" as "oatme" + "a l"', () => {
+    expect(parseItem('oatmeal')).toMatchObject({ qty: 1, unit: null, query: 'oatmeal' })
+    expect(parseItem('tortilla')).toMatchObject({ unit: null, query: 'tortilla' })
+    expect(parseItem('cheese 60g')).toMatchObject({ qty: 60, unit: 'g', query: 'cheese' })
+  })
+})

@@ -5,4 +5,4 @@
  * Kay builds the Shortcut (see docs/SHORTCUT.md), shares it, and pastes the iCloud link here
  * — or sets VITE_SHORTCUT_URL in Netlify environment variables.
  */
-export const SHORTCUT_URL: string = import.meta.env.VITE_SHORTCUT_URL ?? ''
+export const SHORTCUT_URL: string = import.meta.env.VITE_SHORTCUT_URL || 'https://www.icloud.com/shortcuts/18eead8602d74f36af17066f18bf314c'

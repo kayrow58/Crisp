@@ -145,6 +145,48 @@ export interface CustomFood {
   createdBy: string
   createdByName: string
   createdAt: string
+  /** found by the AI lookup and confirmed with "Looks good" */
+  source?: 'ai'
+  brand?: string
+  sourceUrl?: string
+  /** no published nutrition found — the AI's best estimate */
+  estimate?: boolean
+}
+
+/** One food the AI lookup found (before anyone confirms it). */
+export interface AiFoodItem {
+  name: string
+  brand?: string
+  serving: string
+  servingGrams?: number | null
+  cal: number
+  p: number
+  c: number
+  f: number
+  estimate: boolean
+  sourceUrl?: string
+  sourceTitle?: string
+}
+
+export interface AiFoodResult {
+  query: string
+  items: AiFoodItem[]
+}
+
+export interface AiJob {
+  id: string
+  uid: string
+  /** the foods sent in one lookup (one credit for the whole meal) */
+  queries: string[]
+  status: 'pending' | 'done' | 'error'
+  /** what was found for each query, in the same order */
+  results?: AiFoodResult[]
+  note?: string
+  error?: string
+  /** which credit this used, so a failed lookup can be refunded */
+  paidWith: 'daily' | 'bonus'
+  createdAt: string
+  confirmed?: string[]
 }
 
 export type DocKey = 'profile' | 'weights' | 'favorites' | 'recents' | 'dayindex' | `days/${string}`

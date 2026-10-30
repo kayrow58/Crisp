@@ -3,6 +3,7 @@ import TabBar from './components/TabBar'
 import { Overlays } from './components/Overlays'
 import { Shimmer } from './components/ui'
 import { Splash } from './components/Splash'
+import { nudgeViewport } from './lib/viewport'
 import { boot, today, track, useStore } from './lib/store'
 import { getPrefs } from './lib/prefs'
 import { getUi, setHomeDate, setTab, useUi } from './lib/ui'
@@ -26,8 +27,13 @@ let opened = false
 export default function App() {
   const phase = useStore((s) => s.phase)
   const onboarded = useStore((s) => !!s.profile?.onboarded)
-  const [splash, setSplash] = useState(!prefersReducedMotion())
-  const endSplash = useCallback(() => setSplash(false), [])
+  // The opening animation plays once per launch (not again if the page reloads).
+  const [splash, setSplash] = useState(() => !prefersReducedMotion() && !splashShown())
+  const endSplash = useCallback(() => {
+    setSplash(false)
+    markSplashShown()
+    setTimeout(nudgeViewport, 50)
+  }, [])
 
   useEffect(() => {
     if (!booted) {
@@ -89,4 +95,19 @@ function Main() {
       />
     </div>
   )
+}
+
+function splashShown() {
+  try {
+    return sessionStorage.getItem('crisp.splashShown') === '1'
+  } catch {
+    return false
+  }
+}
+function markSplashShown() {
+  try {
+    sessionStorage.setItem('crisp.splashShown', '1')
+  } catch {
+    /* private mode */
+  }
 }

@@ -117,7 +117,7 @@ const PHRASES: [RegExp, string][] = [
   [/\b(uncooked|dry|raw) (white )?rice\b|\b(white )?rice,? (uncooked|dry|raw)\b/, 'rice white long grain regular uncooked dry enriched'],
   [/^(white )?rice$/, 'rice white long grain regular enriched cooked'],
   [/\bbrown rice\b/, 'rice brown long grain cooked'],
-  [/\b(oatmeal|porridge)\b/, 'oats regular quick unenriched cooked water'],
+  [/\bporridge\b/, 'oatmeal'],
   [/^oats$/, 'oats regular quick not fortified dry'],
   [/\b(protein shake|protein powder|whey( protein)?)\b/, 'protein powder whey'],
   [/^(white )?bread$/, 'bread white'],
@@ -322,4 +322,21 @@ export function fuzzySearch(all: LibFood[], query: string, limit = 8, opts: { ph
     .sort((a, b) => b.s - a.s)
     .slice(0, limit)
     .map((x) => x.f)
+}
+
+/**
+ * Is this a confident match — every word typed is in the food's name (no guessing on typos),
+ * without many extra words? Used to decide what can skip the AI ("banana" → "Banana, raw": yes;
+ * "chick-fil-a spicy chicken sandwich" → "CHICK-FIL-A, chicken sandwich": no, "spicy" is missing).
+ */
+export function strongMatch(food: LibFood, query: string): boolean {
+  const ix = index(food)
+  // As typed, or as Crisp understands it ("coke" → "cola regular").
+  return [false, true].some((phrases) => {
+    const qWords = words(expandQuery(query, phrases))
+      .filter((w) => !STOP.has(w) && !/^\d/.test(w))
+      .map(singular)
+    if (!qWords.length || !qWords.every((w) => ix.all.has(w))) return false
+    return ix.count - qWords.length <= (food.custom ? 6 : ix.branded ? 3 : 6)
+  })
 }

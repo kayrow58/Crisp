@@ -1,6 +1,7 @@
 // Fitness: Today | History, steps, workouts, Apple Fitness sync status (spec §4.5).
 import { useEffect, useState } from 'react'
-import { ArrowsClockwise, Barbell, Sneaker } from '@phosphor-icons/react'
+import { ArrowsClockwise, Barbell, Info, Sneaker } from '@phosphor-icons/react'
+import { InfoSheet } from '../components/InfoSheet'
 import { runCrispSync } from '../lib/fitnessSync'
 import { TabScreen } from '../components/Screen'
 import { Sheet } from '../components/Sheet'
@@ -100,16 +101,36 @@ function Today() {
             <span className="muted small">Allowed</span>
             <strong className="balance-num balance-num--neon">{fmt(stats.allowance)}</strong>
           </span>
+          <button
+            className="icon-btn balance-info"
+            aria-label="How your allowance is worked out"
+            onClick={() =>
+              openSheet(
+                <InfoSheet title="Your allowance today">
+                  {track_ ? (
+                    <>
+                      <div className="info-sum">
+                        <span>Base</span>
+                        <strong>{fmt(stats.targets.calories)}</strong>
+                        <span>+ Steps</span>
+                        <strong>{fmt(stats.bonus.steps)}</strong>
+                        <span>+ Exercise & workouts</span>
+                        <strong>{fmt(stats.bonus.workouts)}</strong>
+                        <span className="info-sum-total">= Allowed</span>
+                        <strong className="info-sum-total">{fmt(stats.allowance)}</strong>
+                      </div>
+                      <p className="muted">Steps count in full. Exercise and workouts count at 50%, since trackers often overestimate the calories they burn.</p>
+                    </>
+                  ) : (
+                    <p className="muted">Your activity level is already built into your daily target, so steps and workouts here are for reference only and don't change your allowance.</p>
+                  )}
+                </InfoSheet>,
+              )
+            }
+          >
+            <Info size={18} />
+          </button>
         </div>
-        {track_ ? (
-          <p className="muted small">
-            Base {fmt(stats.targets.calories)} + Steps {fmt(stats.bonus.steps)} + Workouts {fmt(stats.bonus.workouts)}
-            <br />
-            Workouts count at 50% since trackers often overestimate.
-          </p>
-        ) : (
-          <p className="muted small">Your activity level is already in your target, so logged activity here is for reference only.</p>
-        )}
       </Card>
 
       <div className="group-body">

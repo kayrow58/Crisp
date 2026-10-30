@@ -14,6 +14,7 @@ import { addToTray, clearTray, closeTray, newTrayId, openTray, removeFromTray, t
 import { mealLabel } from '../lib/meals'
 import { SaveMealSheet, mealTotals, pushSavedMeal, savedMealFood, savedMealTemplate } from './SavedMeals'
 import { TypeItSheet } from './TypeIt'
+import { sourceDomain } from '../lib/ai'
 import { api, errorMessage } from '../lib/api'
 import { mealForHour } from '../../shared/calc'
 import { hourInZone } from '../../shared/dates'
@@ -296,7 +297,7 @@ function FoodList({ foods, ctx }: { foods: LibFood[]; ctx: AddCtx }) {
   return (
     <ul className="list">
       {foods.map((f) => {
-        const method: LogMethod = f.custom ? 'custom' : f.brand ? 'brand' : 'search'
+        const method: LogMethod = f.custom?.source === 'ai' ? 'ai' : f.custom ? 'custom' : f.brand ? 'brand' : 'search'
         const quick = quickAmount(f)
         return (
           <li key={f.id} className="food-row-wrap">
@@ -305,7 +306,14 @@ function FoodList({ foods, ctx }: { foods: LibFood[]; ctx: AddCtx }) {
               <span className="food-sub">
                 {r0(quick.m.cal)} cal · {f.units[0].label}
                 {f.units[0].grams && f.units[0].label !== 'g' && f.units[0].label !== 'oz' ? ` (${fmt(f.units[0].grams)} g)` : ''}
-                {f.createdByName && <span className="by"> · added by {f.createdByName}</span>}
+                {f.custom?.source === 'ai' ? (
+                  <span className="ai-label">
+                    {' '}
+                    · ✦ AI{f.custom.estimate ? ' estimate' : f.custom.sourceUrl ? ` · ${sourceDomain(f.custom.sourceUrl)}` : ''}
+                  </span>
+                ) : (
+                  f.createdByName && <span className="by"> · added by {f.createdByName}</span>
+                )}
               </span>
             </button>
             <button

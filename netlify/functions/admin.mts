@@ -7,6 +7,7 @@ import type { AppEvent } from '../lib/events'
 import { addDays, dayKey, ymdInZone } from '../../shared/dates'
 import { streak } from '../../shared/calc'
 import type { DayIndex, Profile } from '../../shared/types'
+import { addBonus, privateMessage, quota } from '../lib/ai'
 
 export const config: Config = { path: '/api/admin/*' }
 
@@ -129,6 +130,8 @@ export default handler(async (req, url) => {
         activityLevel: profiles.filter((p) => p.activityMode !== 'track').length,
         weightsLogged30: count((e) => e.type === 'weight_logged'),
         customFoods30: count((e) => e.type === 'custom_food_created'),
+        aiLookups30: count((e) => e.type === 'ai_lookup'),
+        aiConfirmed30: count((e) => e.type === 'ai_food_confirmed'),
       },
       recent: events.slice(0, 50).map((e) => ({ ...e, name: nameOf.get(e.uid) ?? 'Someone' })),
       people,
@@ -151,6 +154,28 @@ export default handler(async (req, url) => {
     ])
     const events = (await eventsForMonths(monthsBack(2))).filter((e) => e.uid === uid).slice(0, 40)
     return json({ profile, weights, dayindex, days: days.filter(Boolean), events })
+  }
+
+  // AI lookups for one person: today's use, bonus credits, and their private out-of-lookups note.
+  if (r === 'ai' && req.method === 'GET') {
+    const profile = await getProfile(url.searchParams.get('uid') ?? '')
+    if (!profile) throw new HttpError(404, 'not_found', 'That person was not found.')
+    return json({ ...(await quota(profile)), message: await privateMessage(profile.id) })
+  }
+  if (r === 'ai-bonus' && req.method === 'POST') {
+    const { uid, add } = await body<{ uid: string; add: number }>(req)
+    const profile = await getProfile(uid)
+    if (!profile) throw new HttpError(404, 'not_found', 'That person was not found.')
+    await addBonus(uid, Math.max(-500, Math.min(50, Math.round(Number(add) || 0))))
+    return json({ ...(await quota(profile)), message: await privateMessage(uid) })
+  }
+  if (r === 'ai-message' && req.method === 'POST') {
+    const { uid, message } = await body<{ uid: string; message: string }>(req)
+    if (!(await getProfile(uid))) throw new HttpError(404, 'not_found', 'That person was not found.')
+    const m = String(message ?? '').trim().slice(0, 400)
+    if (m) await stores.ai().set(`message/${uid}`, m)
+    else await stores.ai().delete(`message/${uid}`)
+    return json({ message: m })
   }
 
   if (r === 'invite' && req.method === 'POST') {

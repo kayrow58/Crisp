@@ -51,6 +51,7 @@ You only do this once. Everything happens in your browser.
 | `VAPID_PRIVATE_KEY` | Push notification key (Claude gave you one) — keep private |
 | `VAPID_SUBJECT` | `mailto:` + your email |
 | `FDC_API_KEY` | Free USDA FoodData Central key for store-brand search ([sign up](https://fdc.nal.usda.gov/api-key-signup)) — keep private. Without it, brand search uses a tiny demo allowance plus Open Food Facts |
+| `ANTHROPIC_API_KEY` | Claude API key for **✦ Ask AI** food lookups ([console.anthropic.com](https://console.anthropic.com)) — keep private. Without it the Ask AI button says it isn't switched on |
 | `VITE_SHORTCUT_URL` | *(later)* the iCloud link to your Crisp Sync Shortcut |
 
 > 🔒 This repo is **public**. Never put real emails, codes, or keys in the code — only here.

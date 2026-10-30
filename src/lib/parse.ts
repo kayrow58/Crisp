@@ -77,7 +77,8 @@ function unitOf(word: string | undefined): string | null {
 const NUM = String.raw`(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.\d+|\d+|[½¼¾⅓⅔⅛]|one and a half|three quarters|two thirds|a third|a quarter|quarter of an?|a couple of|a couple|a few|a pair of|a double|a dozen|a half|half of an?|half of|half an?|one half|an?|one|single|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|half|quarter|couple|few|several|double)`
 const UNIT_WORDS = String.raw`(cups?|c|tablespoons?|tbsps?|tbs|tblsp|tbl|teaspoons?|tsps?|fl\.? ?oz|fluid ounces?|floz|ounces?|oz|grams?|grs|gms?|gm|gr|g|kilograms?|kgs?|kilos?|pounds?|lbs?|milliliters?|millilitres?|mls?|liters?|litres?|l|slices?|pieces?|pcs?|each|ea|whole|servings?|portions?|scoops?|bowls?|glass(?:es)?|mugs?|cans?|tins?|bottles?|bars?|patt(?:y|ies)|sticks?|strips?|rashers?|links?|cloves?|containers?|cartons?|tubs?|packets?|packs?|pouch(?:es)?|sachets?|extra large|xl|jumbo|large|lg|big|medium|med|regular|small|sm|little|handfuls?|heaping (?:spoonfuls?|spoons?|tablespoons?|tbsp)|spoonfuls?|spoons?|pinch(?:es)?|dash(?:es)?|splash(?:es)?|drizzle|shots?)`
 const LEAD = new RegExp(String.raw`^${NUM}\s*${UNIT_WORDS}?(?:\s+of)?(?:\s+an?)?\s+(.+)$`)
-const TRAIL = new RegExp(String.raw`^(.+?)\s*[,(:-]?\s*${NUM}\s*${UNIT_WORDS}\)?$`)
+// The amount must be its own word(s) after the food ("cheese 60 g"), never the end of a word ("oatmeAL").
+const TRAIL = new RegExp(String.raw`^(.+?)(?:\s*[,(:-]\s*|\s+)${NUM}\s*${UNIT_WORDS}\)?$`)
 const TRAIL_NUM = /^(.+?)\s*[,(:]?\s*(?:x\s*)?(\d+(?:\.\d+)?)\)?$/
 const LEAD_X = /^(\d+(?:\.\d+)?)\s*x\s+(.+)$/
 

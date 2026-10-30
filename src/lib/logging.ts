@@ -6,7 +6,7 @@ import { newId } from './format'
 import { mealLabel } from './meals'
 import { toast } from './ui'
 
-export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom' | 'typed' | 'brand' | 'saved_meal' | 'voice'
+export type LogMethod = 'search' | 'recent' | 'favorite' | 'quick' | 'custom' | 'typed' | 'brand' | 'saved_meal' | 'voice' | 'ai'
 
 const templateKey = (e: Pick<FoodEntry, 'foodId' | 'name' | 'unit'>) => `${e.foodId}|${e.foodId === 'q' ? e.name : ''}|${e.unit}`
 

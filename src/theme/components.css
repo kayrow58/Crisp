@@ -2361,3 +2361,268 @@ select.input {
   color: var(--cyan);
   flex: 0 0 auto;
 }
+
+/* ---------- ⓘ info sheets ---------- */
+.info-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  line-height: 1.45;
+}
+.info-sum {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s2) var(--s4);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--card);
+  font-variant-numeric: tabular-nums;
+}
+.info-sum-total {
+  padding-top: var(--s2);
+  border-top: 1px solid var(--divider);
+  color: var(--cyan);
+}
+.balance-top {
+  position: relative;
+}
+.balance-info {
+  margin-left: auto;
+  align-self: flex-start;
+  color: var(--text-2);
+}
+
+/* ---------- ✦ Ask AI ---------- */
+.ai-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 50px;
+  padding: 0 var(--s4);
+  border-radius: 25px;
+  font-weight: 700;
+  color: var(--text);
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--pink) 22%, transparent);
+}
+:root[data-theme='light'] .ai-btn {
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    var(--grad) border-box;
+}
+.ai-btn--compact {
+  min-height: 34px;
+  padding: 0 var(--s3);
+  font-size: var(--t-subhead);
+  box-shadow: none;
+}
+.ai-star {
+  color: var(--yellow);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--yellow) 70%, transparent));
+}
+.ai-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.ai-status {
+  font-size: var(--t-headline);
+}
+.ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+}
+.ai-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.ai-card-top > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-name {
+  font-size: var(--t-headline);
+}
+.ai-cal {
+  font-family: var(--font-rounded);
+  font-size: var(--t-title);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ai-cal small {
+  font-size: var(--t-caption);
+  color: var(--text-2);
+  font-weight: 500;
+}
+.ai-source {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+.ai-tag {
+  font-size: var(--t-caption);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #000;
+  background: var(--yellow);
+}
+.ai-retry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.ai-label {
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+/* private note (out of AI lookups) */
+.secret-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--edge);
+  background: rgba(0, 0, 0, 0.7);
+  animation: fade 200ms ease;
+}
+.secret-card {
+  width: min(100%, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5) var(--s4) var(--s4);
+  border-radius: 28px;
+  text-align: center;
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--pink) 40%, transparent);
+  animation: sheet-up 420ms var(--spring);
+}
+.secret-hearts {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  font-size: 30px;
+}
+.secret-hearts span {
+  color: var(--pink);
+  animation: heart-pop 1.4s ease-in-out infinite;
+}
+.secret-hearts span:nth-child(2) {
+  color: var(--cyan);
+  animation-delay: 0.2s;
+}
+.secret-hearts span:nth-child(3) {
+  color: var(--yellow);
+  animation-delay: 0.4s;
+}
+@keyframes heart-pop {
+  50% {
+    transform: scale(1.25);
+  }
+}
+.secret-msg {
+  font-size: var(--t-headline);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.typeit-miss-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.typeit-edit .ai-btn--compact {
+  align-self: flex-start;
+}
+.admin-ai {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--divider);
+}
+.admin-ai-msg {
+  min-height: 80px;
+  resize: vertical;
+}
+.ai-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-top: calc(var(--s2) * -1);
+}
+.ai-row .ai-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* ---------- Type or say it: Crisp / ✦ AI switch ---------- */
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.mode-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.mode-opt--on {
+  background: var(--card);
+  color: var(--text);
+}
+.mode-opt--ai.mode-opt--on {
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    var(--grad) border-box;
+  border: 1.5px solid transparent;
+}
+.typeit-box--ai {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--yellow) 55%, transparent);
+}
+.ai-left {
+  color: var(--yellow);
+}
+.ai-searching {
+  opacity: 0.85;
+}
+.ai-spin {
+  animation: ai-spin 1.4s linear infinite;
+  display: inline-block;
+}
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.center {
+  text-align: center;
+}
