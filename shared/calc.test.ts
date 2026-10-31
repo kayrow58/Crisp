@@ -14,6 +14,7 @@ import {
   stepCalories,
   streak,
   suggestedCalories,
+  paceAllowed,
 } from './calc'
 import { addDays, dayKey } from './dates'
 import { mergeDay } from './merge'
@@ -40,6 +41,16 @@ describe('targets', () => {
     expect(suggestedCalories('lose', 'female', 1150, lbToKg(95))).toBe(1150)
     expect(suggestedCalories('gain', 'male', 2500, 80)).toBe(2750)
     expect(suggestedCalories('maintain', 'male', 2504, 80)).toBe(2500)
+  })
+  it('follows the weekly pace, capped at ~1% of body weight', () => {
+    expect(suggestedCalories('lose', 'male', 2800, lbToKg(220), 0.5)).toBe(2550)
+    expect(suggestedCalories('lose', 'male', 2800, lbToKg(220), 2)).toBe(1800)
+    // 150 lb → 1.5 lb/week max, so 2 lb/week gets capped to 750/day
+    expect(suggestedCalories('lose', 'female', 2300, lbToKg(150), 2)).toBe(1550)
+    expect(suggestedCalories('gain', 'male', 2500, 80, 0.25)).toBe(2630)
+    expect(paceAllowed('lose', 2, lbToKg(150))).toBe(false)
+    expect(paceAllowed('lose', 1.5, lbToKg(150))).toBe(true)
+    expect(paceAllowed('lose', 0.5, lbToKg(90))).toBe(true)
   })
   it('is protein first', () => {
     const m = macrosFor(1600, lbToKg(150))

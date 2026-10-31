@@ -50,14 +50,38 @@ export function maintenance(
 }
 
 /** Suggested daily calories for the goal, respecting the gentle guardrails (≤ ~1%/week, floor). */
-export function suggestedCalories(goal: Goal, sex: Sex, maint: number, kg: number): number {
+/** Weekly pace choices (lb per week). Lose: 0.5–2, gain: 0.25–1. */
+export const LOSE_PACES = [0.5, 1, 1.5, 2] as const
+export const GAIN_PACES = [0.25, 0.5, 1] as const
+export const DEFAULT_PACE: Record<Goal, number> = { lose: 1, gain: 0.5, maintain: 0 }
+
+/** Fastest safe loss pace (~1% of body weight a week), in lb/week. */
+export const maxLosePace = (kg: number) => kgToLb(kg) * 0.01
+
+/** A pace is offered when it stays within ~1% of body weight a week (0.5 lb is always allowed). */
+export function paceAllowed(goal: Goal, pace: number, kg: number): boolean {
+  if (goal !== 'lose') return true
+  return pace <= 0.5 || pace <= maxLosePace(kg) + 0.05
+}
+
+/** Daily calorie change for a weekly pace: 1 lb ≈ 3,500 cal → 1 lb/week = 500/day. */
+export const paceToDaily = (lbPerWeek: number) => (lbPerWeek * CAL_PER_LB) / 7
+
+export function suggestedCalories(goal: Goal, sex: Sex, maint: number, kg: number, pace?: number): number {
   if (goal === 'maintain') return round(maint, 10)
-  if (goal === 'gain') return round(maint + 250, 10)
-  const maxDeficit = (kgToLb(kg) * 0.01 * CAL_PER_LB) / 7 // ~1% of body weight per week
-  const deficit = Math.min(500, maxDeficit)
+  const lb = pace ?? DEFAULT_PACE[goal]
+  if (goal === 'gain') return round(maint + paceToDaily(lb), 10)
+  const maxDeficit = paceToDaily(Math.max(0.5, maxLosePace(kg))) // ~1% of body weight per week
+  const deficit = Math.min(paceToDaily(lb), maxDeficit)
   const floor = CALORIE_FLOOR[sex]
   const target = Math.max(maint - deficit, Math.min(floor, maint))
   return round(target, 10)
+}
+
+/** Weekly pace the target actually gives (after the safety cap and calorie floor). */
+export function effectivePace(goal: Goal, calories: number, maint: number): number {
+  if (goal === 'maintain') return 0
+  return Math.abs(maint - calories) * 7 / CAL_PER_LB
 }
 
 /** Protein-first macros: 0.8 g per lb of goal weight, ~30% fat, carbs fill the rest. */
@@ -71,7 +95,7 @@ export function macrosFor(calories: number, goalKg: number): Omit<Targets, 'calo
 export function suggestTargets(p: Profile, currentKg: number): Targets | null {
   if (!p.sex || !p.heightCm || !p.birthYear || !p.goal || !p.goalWeightKg) return null
   const maint = maintenance(p.sex, currentKg, p.heightCm, ageFrom(p.birthYear), p.activityMode, p.activityLevel)
-  const calories = suggestedCalories(p.goal, p.sex, maint, currentKg)
+  const calories = suggestedCalories(p.goal, p.sex, maint, currentKg, p.paceLbPerWeek)
   return { calories, ...macrosFor(calories, p.goalWeightKg), manual: false }
 }
 

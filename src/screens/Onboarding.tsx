@@ -2,7 +2,8 @@
 import { useMemo, useState } from 'react'
 import { ScanSmiley } from '@phosphor-icons/react'
 import { Button, Field, Note, Segmented } from '../components/ui'
-import { CM_PER_IN, healthyRangeKg, isBelowFloor, isBelowHealthy, suggestTargets } from '../../shared/calc'
+import { PacePicker } from '../components/PacePicker'
+import { CM_PER_IN, DEFAULT_PACE, healthyRangeKg, isBelowFloor, isBelowHealthy, suggestTargets } from '../../shared/calc'
 import type { ActivityLevel, ActivityMode, Goal, Profile, Sex, Targets, Units } from '../../shared/types'
 import { fromDisplayWeight, newId, showWeight, toDisplayWeight, weightUnit } from '../lib/format'
 import { passkeysSupported, registerPasskey } from '../lib/auth'
@@ -32,7 +33,12 @@ export function Onboarding() {
   const [inch, setInch] = useState('')
   const [cm, setCm] = useState('')
   const [weight, setWeight] = useState('')
-  const [goal, setGoal] = useState<Goal>('lose')
+  const [goal, setGoalRaw] = useState<Goal>('lose')
+  const [pace, setPace] = useState(DEFAULT_PACE.lose)
+  const setGoal = (g: Goal) => {
+    setGoalRaw(g)
+    setPace(DEFAULT_PACE[g])
+  }
   const [goalWeight, setGoalWeight] = useState('')
   const [mode, setMode] = useState<ActivityMode>('level')
   const [level, setLevel] = useState<ActivityLevel>('sedentary')
@@ -51,6 +57,7 @@ export function Onboarding() {
     startWeightKg: weightKg,
     goal,
     goalWeightKg: goalKg,
+    paceLbPerWeek: goal === 'maintain' ? undefined : pace,
     activityMode: mode,
     activityLevel: level,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -147,7 +154,9 @@ export function Onboarding() {
           </>
         )}
 
-        {step === 'goalWeight' && <GoalWeightStep heightCm={heightCm} units={units} value={goalWeight} onChange={setGoalWeight} goalKg={goalKg} onNext={next} ok={goalOk} />}
+        {step === 'goalWeight' && <GoalWeightStep heightCm={heightCm} units={units} value={goalWeight} onChange={setGoalWeight} goalKg={goalKg} onNext={next} ok={goalOk}>
+            <PacePicker goal={goal} value={pace} onChange={setPace} kg={weightKg} units={units} />
+          </GoalWeightStep>}
 
         {step === 'activity' && (
           <>
@@ -226,6 +235,7 @@ function GoalWeightStep({
   goalKg,
   onNext,
   ok,
+  children,
 }: {
   heightCm: number
   units: Units
@@ -234,6 +244,7 @@ function GoalWeightStep({
   goalKg: number
   onNext: () => void
   ok: boolean
+  children?: React.ReactNode
 }) {
   const range = healthyRangeKg(heightCm)
   const low = value && isBelowHealthy(goalKg, heightCm)
@@ -249,6 +260,7 @@ function GoalWeightStep({
       </div>
       <Field label="Your goal" inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))} suffix={weightUnit(units)} />
       {low && <Note tone="warn">That's below the usual healthy range for your height. You can keep it — just something to know.</Note>}
+      {children}
       <Button className="onboard-next" onClick={onNext} disabled={!ok}>
         Continue
       </Button>

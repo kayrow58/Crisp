@@ -17,6 +17,7 @@ import { Fitness } from './screens/Fitness'
 import { Weight } from './screens/Weight'
 import { Settings } from './screens/Settings'
 import { openLog } from './screens/Log'
+import { WeekendWatcher } from './components/Weekend'
 
 // The Home Screen requirement is off in development builds (npm run dev) so the app can be previewed on a computer.
 const REQUIRE_HOME_SCREEN = import.meta.env.PROD
@@ -85,6 +86,7 @@ function Main() {
         {tab === 'weight' && <Weight />}
         {tab === 'settings' && <Settings />}
       </div>
+      <WeekendWatcher />
       <TabBar
         active={tab}
         onChange={(t) => {

@@ -3030,3 +3030,245 @@ select.input {
   flex-wrap: wrap;
   margin-top: var(--s2);
 }
+
+/* ---------- Weekend mode ---------- */
+.wbar {
+  position: relative;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--raised);
+  overflow: hidden;
+}
+.wbar--thick {
+  height: 16px;
+}
+.mini-bar .wbar {
+  flex: 1;
+  height: 6px;
+}
+.wb-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.wb-band--orange {
+  background: color-mix(in srgb, var(--zone-orange) 16%, transparent);
+}
+.wb-band--red {
+  background: color-mix(in srgb, var(--zone-red) 22%, transparent);
+}
+.wb-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: width var(--dur-bar) var(--spring), left var(--dur-bar) var(--spring);
+}
+.wb-fill--goal {
+  background: linear-gradient(90deg, var(--pink), var(--cyan));
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+}
+.wb-fill--orange {
+  background: var(--zone-orange);
+  box-shadow: 0 0 10px var(--zone-orange);
+}
+.wb-fill--red {
+  background: var(--zone-red);
+  box-shadow: 0 0 12px var(--zone-red);
+}
+.wb-fill--over {
+  background: repeating-linear-gradient(-45deg, var(--zone-over) 0 5px, var(--zone-red) 5px 10px);
+  box-shadow: 0 0 14px var(--zone-red);
+}
+.wbar--normal .wb-fill--goal:last-of-type,
+.wbar--orange .wb-fill--orange,
+.wbar--red .wb-fill--red,
+.wbar--over .wb-fill--over {
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
+}
+.wbar--normal .wb-fill--goal {
+  border-radius: var(--r-pill);
+}
+.wb-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  opacity: 0.55;
+}
+.wb-tick--maint {
+  background: var(--zone-red);
+  opacity: 0.9;
+}
+.wk-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  margin: -2px 0 var(--s2);
+  color: var(--cyan);
+}
+.wk-status--orange {
+  color: var(--zone-orange);
+}
+.wk-status--red {
+  color: var(--zone-red);
+}
+.wk-status--over {
+  color: #ff5a6e;
+}
+.weekend-chip-row {
+  display: flex;
+  justify-content: center;
+  margin-top: calc(var(--s2) * -1);
+}
+.weekend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--t-caption);
+  font-weight: 600;
+}
+.weekend-chip--on {
+  color: var(--zone-orange);
+  border-color: color-mix(in srgb, var(--zone-orange) 50%, transparent);
+  background: color-mix(in srgb, var(--zone-orange) 10%, transparent);
+}
+.popup-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+  animation: fade 150ms ease;
+}
+.popup {
+  width: 100%;
+  max-width: 360px;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--divider);
+  border-radius: 22px;
+  padding: var(--s5) var(--s4) var(--s3);
+  text-align: center;
+  animation: pop 240ms var(--spring);
+}
+.popup-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--s3);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.popup-icon--sun {
+  color: var(--zone-orange);
+  background: color-mix(in srgb, var(--zone-orange) 15%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--zone-orange) 35%, transparent);
+}
+.popup-icon--red {
+  color: var(--zone-red);
+  background: color-mix(in srgb, var(--zone-red) 15%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--zone-red) 35%, transparent);
+}
+.popup-title {
+  font-size: var(--t-title3, 20px);
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: var(--s2);
+}
+.popup-lead {
+  color: var(--text-2);
+  font-size: var(--t-subhead);
+  line-height: 1.4;
+  margin-bottom: var(--s3);
+}
+.popup-lead b {
+  color: var(--text);
+}
+.popup-sub {
+  font-size: var(--t-subhead);
+  line-height: 1.4;
+  margin-bottom: var(--s4);
+}
+.zone-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s3);
+  text-align: left;
+  display: grid;
+  gap: var(--s2);
+  font-size: var(--t-subhead);
+  line-height: 1.35;
+}
+.zone-legend li {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+}
+.zone-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+}
+.zone-dot--goal {
+  background: linear-gradient(135deg, var(--pink), var(--cyan));
+}
+.zone-dot--orange {
+  background: var(--zone-orange);
+  box-shadow: 0 0 8px var(--zone-orange);
+}
+.zone-dot--red {
+  background: var(--zone-red);
+  box-shadow: 0 0 8px var(--zone-red);
+}
+.popup-tip {
+  display: flex;
+  gap: var(--s2);
+  text-align: left;
+  font-size: var(--t-footnote, 13px);
+  line-height: 1.4;
+  color: var(--text-2);
+  background: var(--raised);
+  border-radius: 14px;
+  padding: var(--s3);
+  margin-bottom: var(--s4);
+}
+.popup-tip svg {
+  flex: none;
+  color: var(--pink);
+  margin-top: 2px;
+}
+.popup-tip b {
+  color: var(--text);
+}
+.popup-btn {
+  width: 100%;
+}
+.popup-link {
+  display: block;
+  width: 100%;
+  padding: var(--s3) 0 var(--s1);
+  color: var(--text-2);
+}
+.pace-picker {
+  display: grid;
+  gap: var(--s2);
+  margin: var(--s2) 0;
+}
+/* a lone field in a scrolling screen shouldn't stretch to fill the space */
+.scroll > .field {
+  flex: none;
+}

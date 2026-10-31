@@ -1,6 +1,6 @@
 // Home: streak, week strip, calorie + macro card, meals (spec §4.1).
 import { useEffect, useRef, useState } from 'react'
-import { BellRinging, ForkKnife } from '@phosphor-icons/react'
+import { BellRinging, ForkKnife, Sun } from '@phosphor-icons/react'
 import { TabScreen } from '../components/Screen'
 import { MiniCalorieBar, StatCard } from '../components/Meters'
 import { Flame } from '../components/Flame'
@@ -8,12 +8,14 @@ import { Button, Card, EmptyState, Note } from '../components/ui'
 import { dayStats, useToday } from '../lib/derived'
 import { ensureDay, refresh, useDay, useDayIndex, useStore } from '../lib/store'
 import { setPref, usePrefs } from '../lib/prefs'
-import { pushScreen, setHomeDate, toast, useUi } from '../lib/ui'
+import { getUi, pushScreen, setHomeDate, showOverlay, toast, useUi } from '../lib/ui'
 import { dayLabel, fmt, r0 } from '../lib/format'
 import { MAX_EXTRA_MEALS, addExtraMeal, displayMeal, useMeals } from '../lib/meals'
 import { streak } from '../../shared/calc'
 import { addDays, weekday } from '../../shared/dates'
 import { openLog } from './Log'
+import { WeekendPrompt } from '../components/Weekend'
+import { setWeekend, shouldAskWeekend, useWeekendOn, weekendEligible, weekendKey, zonesFor } from '../lib/weekend'
 import { MealScreen } from './Meal'
 import { enableNotifications, pushSupported } from '../lib/push'
 import { errorMessage } from '../lib/api'
@@ -27,7 +29,25 @@ export function Home() {
   const dates = useDayIndex()
   const s = streak(dates, today)
   const stats = dayStats(profile, day)
+  const weekendOn = useWeekendOn(selected, profile)
+  const zones = weekendOn ? zonesFor(stats.allowance, stats.maintIncl) : null
   const [flare, setFlare] = useState(false)
+
+  // Once per weekend: ask if they want Weekend mode (waits for the opening animation and any open sheet).
+  useEffect(() => {
+    if (!shouldAskWeekend(today, profile)) return
+    let tries = 0
+    const id = setInterval(() => {
+      tries++
+      const u = getUi()
+      const busy = !!document.querySelector('.splash') || u.sheets.length > 0 || u.screens.length > 0 || !!u.overlay || !!u.alert
+      if (!busy && shouldAskWeekend(today, profile)) {
+        showOverlay(<WeekendPrompt date={today} />)
+        clearInterval(id)
+      } else if (tries > 120) clearInterval(id)
+    }, 1500)
+    return () => clearInterval(id)
+  }, [today, profile?.goal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void ensureDay(selected)
@@ -51,7 +71,7 @@ export function Home() {
     <TabScreen
       title={dayLabel(selected, today)}
       right={<Flame count={s.current} lit={s.loggedToday} flare={flare} />}
-      sticky={<MiniCalorieBar eaten={stats.totals.cal} allowance={stats.allowance} />}
+      sticky={<MiniCalorieBar eaten={stats.totals.cal} allowance={stats.allowance} weekend={zones} />}
       onRefresh={refresh}
     >
       <WeekStrip selected={selected} today={today} logged={dates} />
@@ -74,7 +94,17 @@ export function Home() {
         mode={prefs.statMode}
         display={prefs.macroDisplay}
         onToggle={() => setPref('statMode', prefs.statMode === 'eaten' ? 'left' : 'eaten')}
+        weekend={zones}
       />
+
+      {weekendKey(selected) && weekendEligible(profile) && (
+        <div className="weekend-chip-row">
+          <button className={`weekend-chip pressable${weekendOn ? ' weekend-chip--on' : ''}`} onClick={() => setWeekend(selected, !weekendOn)} aria-pressed={weekendOn}>
+            <Sun size={14} weight="fill" aria-hidden />
+            {weekendOn ? 'Weekend mode on' : 'Turn on Weekend mode'}
+          </button>
+        </div>
+      )}
 
       {showNotif && <NotifCard />}
 

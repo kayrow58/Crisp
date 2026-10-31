@@ -20,7 +20,8 @@ import { Button, Field, Group, Note, Row, Segmented, Toggle } from '../component
 import { getState, latestWeightKg, refresh, signOut, track, updateProfile, useStore } from '../lib/store'
 import { setPref, usePrefs } from '../lib/prefs'
 import { confirm, openSheet, pushScreen, toast } from '../lib/ui'
-import { CM_PER_IN, healthyRangeKg, isBelowFloor, isBelowHealthy, maintenanceFor, suggestTargets } from '../../shared/calc'
+import { CM_PER_IN, DEFAULT_PACE, healthyRangeKg, isBelowFloor, isBelowHealthy, maintenanceFor, suggestTargets } from '../../shared/calc'
+import { PacePicker } from '../components/PacePicker'
 import type { ActivityLevel, ActivityMode, Goal, Sex, Targets, Units } from '../../shared/types'
 import { fmt, fromDisplayWeight, showHeight, showWeight, timeAgo, toDisplayWeight, weightUnit } from '../lib/format'
 import { changePassword, deleteAccount, disablePasskey, passkeysSupported, registerPasskey } from '../lib/auth'
@@ -279,11 +280,16 @@ function recalc<T extends ReturnType<typeof getState>['profile'] & object>(p: T)
 function GoalTargets() {
   const p = useStore((s) => s.profile)!
   const units = p.units
-  const [goal, setGoal] = useState<Goal>(p.goal ?? 'maintain')
+  const [goal, setGoalRaw] = useState<Goal>(p.goal ?? 'maintain')
+  const [pace, setPace] = useState<number>(p.paceLbPerWeek && p.goal ? p.paceLbPerWeek : DEFAULT_PACE[p.goal ?? 'maintain'])
+  const setGoal = (g: Goal) => {
+    setGoalRaw(g)
+    setPace(g === p.goal && p.paceLbPerWeek ? p.paceLbPerWeek : DEFAULT_PACE[g])
+  }
   const [gw, setGw] = useState(p.goalWeightKg ? fmt(toDisplayWeight(p.goalWeightKg, units), 0).replace(/,/g, '') : '')
   const kg = latestWeightKg() ?? p.startWeightKg ?? 70
   const goalKg = goal === 'maintain' ? kg : fromDisplayWeight(Number(gw), units)
-  const draft = { ...p, goal, goalWeightKg: goalKg }
+  const draft = { ...p, goal, goalWeightKg: goalKg, paceLbPerWeek: goal === 'maintain' ? undefined : pace }
   const suggested = suggestTargets(draft, kg)
   const [manual, setManual] = useState(!!p.targets?.manual)
   const [t, setT] = useState<Targets>(p.targets ?? suggested ?? { calories: 2000, protein: 120, carbs: 200, fat: 65, manual: false })
@@ -295,6 +301,7 @@ function GoalTargets() {
     updateProfile({
       goal,
       goalWeightKg: goalKg,
+      paceLbPerWeek: goal === 'maintain' ? undefined : pace,
       targets,
       // a new goal restarts the milestone journey from today's weight
       ...(goalChanged ? { startWeightKg: kg, milestonesHit: [] } : {}),
@@ -323,6 +330,8 @@ function GoalTargets() {
             </p>
           )}
           {p.heightCm && gw && isBelowHealthy(goalKg, p.heightCm) && <Note tone="warn">That's below the usual healthy range for your height. You can keep it.</Note>}
+          <PacePicker goal={goal} value={pace} onChange={setPace} kg={kg} units={units} />
+          {manual && <p className="muted small">You're using your own targets, so pace won't change your calories. Turn on suggested targets to use it.</p>}
         </>
       )}
       {maint && <p className="muted small">Estimated maintenance: {fmt(Math.round(maint))} cal{p.activityMode === 'track' ? ' + your logged activity' : ''}</p>}

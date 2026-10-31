@@ -15,6 +15,11 @@ export interface Prefs {
   shortcutConnected: boolean
   /** the 'stop the microphone asking' tip was seen */
   micTipDone: boolean
+  /** Weekend mode: Saturday date of the weekend it's on for / the weekend we already asked about */
+  weekendOn: string
+  weekendAsked: string
+  /** day the 'almost at maintenance' heads-up was shown */
+  weekendWarned: string
 }
 
 const DEFAULTS: Prefs = {
@@ -28,6 +33,9 @@ const DEFAULTS: Prefs = {
   shortcutAdded: false,
   shortcutConnected: false,
   micTipDone: false,
+  weekendOn: '',
+  weekendAsked: '',
+  weekendWarned: '',
 }
 
 const KEY = 'crisp.prefs'

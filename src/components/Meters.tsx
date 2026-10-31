@@ -1,5 +1,7 @@
 // Calorie + macro bars and rings (spec §4.1). Over target shows a striped orange tip + "+N over".
 import { fmt, r0 } from '../lib/format'
+import { WeekendBar, WeekendStatus } from './Weekend'
+import { zoneOf, type Zones } from '../lib/weekend'
 
 export function Bar({ value, target, color, label, thick }: { value: number; target: number; color: string; label: string; thick?: boolean }) {
   const pct = target > 0 ? Math.min(1, value / target) : 0
@@ -39,7 +41,9 @@ export function StatCard({
   mode,
   display,
   onToggle,
+  weekend,
 }: {
+  weekend?: Zones | null
   totals: Totals
   allowance: number
   goals: Goals
@@ -68,11 +72,16 @@ export function StatCard({
             <span className="big-target"> {over ? 'over' : 'left'}</span>
           </span>
         )}
-        <span className="stat-caption">{over ? <span className="over-text">+{fmt(-r0(left))} over</span> : 'calories'}</span>
+        <span className="stat-caption">{over && !weekend ? <span className="over-text">+{fmt(-r0(left))} over</span> : 'calories'}</span>
       </div>
+      {weekend && <WeekendStatus eaten={totals.cal} zones={weekend} />}
       {display === 'bars' ? (
         <>
-          <Bar thick value={totals.cal} target={allowance} color="var(--grad)" label={`Calories, ${r0(totals.cal)} of ${allowance}`} />
+          {weekend ? (
+            <WeekendBar thick eaten={totals.cal} zones={weekend} label={`Calories, ${r0(totals.cal)} of ${allowance}`} />
+          ) : (
+            <Bar thick value={totals.cal} target={allowance} color="var(--grad)" label={`Calories, ${r0(totals.cal)} of ${allowance}`} />
+          )}
           <div className="macro-grid">
             {MACROS.map((m) => {
               const v = totals[m.key]
@@ -93,13 +102,15 @@ export function StatCard({
           </div>
         </>
       ) : (
-        <Rings totals={totals} allowance={allowance} goals={goalFor} mode={mode} />
+        <Rings totals={totals} allowance={allowance} goals={goalFor} mode={mode} zoneColor={weekend ? ZONE_COLOR[zoneOf(totals.cal, weekend)] : undefined} />
       )}
     </button>
   )
 }
 
-function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: number; goals: { p: number; c: number; f: number }; mode: 'eaten' | 'left' }) {
+const ZONE_COLOR = { normal: '', orange: 'var(--zone-orange)', red: 'var(--zone-red)', over: 'var(--zone-over)' }
+
+function Rings({ totals, allowance, goals, mode, zoneColor }: { totals: Totals; allowance: number; goals: { p: number; c: number; f: number }; mode: 'eaten' | 'left'; zoneColor?: string }) {
   const rings = [
     { v: totals.cal, g: allowance, color: 'url(#ringGrad)', label: 'Calories' },
     { v: totals.p, g: goals.p, color: 'var(--protein-ink)', label: 'Protein' },
@@ -131,7 +142,7 @@ function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: 
                 cy={size / 2}
                 r={radius}
                 fill="none"
-                stroke={over ? 'var(--warning)' : r.color}
+                stroke={over ? (i === 0 && zoneColor ? zoneColor : 'var(--warning)') : r.color}
                 strokeWidth={11}
                 strokeLinecap="round"
                 strokeDasharray={`${circ * pct} ${circ}`}
@@ -154,10 +165,14 @@ function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: 
   )
 }
 
-export function MiniCalorieBar({ eaten, allowance }: { eaten: number; allowance: number }) {
+export function MiniCalorieBar({ eaten, allowance, weekend }: { eaten: number; allowance: number; weekend?: Zones | null }) {
   return (
     <div className="mini-bar">
-      <Bar value={eaten} target={allowance} color="var(--grad)" label={`Calories, ${r0(eaten)} of ${allowance}`} />
+      {weekend ? (
+        <WeekendBar eaten={eaten} zones={weekend} label={`Calories, ${r0(eaten)} of ${allowance}`} />
+      ) : (
+        <Bar value={eaten} target={allowance} color="var(--grad)" label={`Calories, ${r0(eaten)} of ${allowance}`} />
+      )}
       <span className="mini-bar-text">
         {fmt(r0(eaten))} / {fmt(allowance)}
       </span>
