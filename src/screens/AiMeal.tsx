@@ -1,10 +1,11 @@
-// ✦ AI — talk or type what you ate, once. Claude reads the whole meal (restaurant context carries
+// AI — talk or type what you ate, once. Claude reads the whole meal (restaurant context carries
 // over: "grilled Chick-fil-A sandwich and waffle fries" = both from Chick-fil-A), matches foods already in
 // Crisp's database (free), and searches the web only for what's new (one credit per meal).
 // Results come back as thin cards. One bar at the bottom: Looks good (saves everything) / Not right
 // (pick the wrong cards, say what's wrong, search again).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Microphone, Minus, Plus, Sparkle, Stop, X } from '@phosphor-icons/react'
+import { Microphone, Minus, Plus, Stop, X } from '@phosphor-icons/react'
+import { CrispMark } from '../components/CrispMark'
 import { Sheet } from '../components/Sheet'
 import { Button, Note } from '../components/ui'
 import { Dropdown, MealBubble, unitOptions } from '../components/Pickers'
@@ -253,7 +254,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   return (
     <Sheet
       tall
-      title="✦ AI"
+      title="AI"
       dirty={phase === 'results' || (hasText && phase === 'edit')}
       dirtyMessage="What you told the AI won't be added."
       footer={
@@ -273,7 +274,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
                     Cancel
                   </Button>
                   <Button onClick={searchAgain} disabled={!Object.keys(fixes).length}>
-                    <Sparkle size={16} weight="fill" aria-hidden /> Search again
+                    <CrispMark size={16} /> Search again
                   </Button>
                 </div>
               </>
@@ -301,7 +302,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
       {phase === 'edit' ? (
         <>
           <p className="ai-intro">
-            <Sparkle size={18} weight="fill" className="ai-star" aria-hidden /> Tell me what you ate — talk or type, once. Restaurants and brands too.
+            <CrispMark size={18} /> Tell me what you ate — talk or type, once. Restaurants and brands too.
           </p>
           <div className={`typeit-box ai-box${listening ? ' typeit-box--live' : ''}`}>
             <textarea
@@ -324,12 +325,12 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
           {triedMic && !prefs.micTipDone && <MicTipCard />}
           {hasText && !listening ? (
             <button className="ai-go pressable" onClick={find} disabled={loading}>
-              <Sparkle size={20} weight="fill" className="ai-star" aria-hidden />
+              <CrispMark size={20} />
               <span>{loading ? 'Loading…' : 'Find my foods'}</span>
             </button>
           ) : (
             <button className={`ai-go pressable${listening ? ' ai-go--live' : ''}`} onClick={talk}>
-              {listening ? <Stop size={20} weight="fill" aria-hidden /> : <Sparkle size={20} weight="fill" className="ai-star" aria-hidden />}
+              {listening ? <Stop size={20} weight="fill" aria-hidden /> : <CrispMark size={20} />}
               <span>{listening ? 'Listening… tap when done' : voiceSupported() ? 'AI · tap to talk' : 'AI · type above'}</span>
             </button>
           )}
@@ -394,12 +395,12 @@ function Thinking() {
   const order = useMemo(phraseOrder, [])
   const [i, setI] = useState(0)
   useEffect(() => {
-    const t = setInterval(() => setI((n) => (n + 1) % order.length), 1900)
+    const t = setInterval(() => setI((n) => (n + 1) % order.length), 3500)
     return () => clearInterval(t)
   }, [order])
   return (
     <div className="ai-thinking" role="status" aria-live="polite">
-      <Sparkle size={20} weight="fill" className="ai-star ai-spin" aria-hidden />
+      <CrispMark size={28} working />
       <span key={i} className="ai-thinking-text">
         {order[i]}
       </span>
@@ -434,7 +435,9 @@ function AiCard({
     c.kind === 'web'
       ? c.web!.item.estimate
         ? 'Estimate'
-        : `From ${sourceDomain(c.web!.item.sourceUrl) || 'the web'}`
+        : c.web!.item.sourceUrl
+          ? `From ${sourceDomain(c.web!.item.sourceUrl)}`
+          : 'Typical values'
       : c.kind === 'database'
         ? c.food?.custom
           ? `Saved by ${c.food.custom.createdByName}`

@@ -1,4 +1,4 @@
-// Small pieces of the ✦ AI screen: food names, and the private note shown when someone runs out of web lookups.
+// Small pieces of the AI screen: food names, and the private note shown when someone runs out of web lookups.
 import { Button } from '../components/ui'
 import { showOverlay } from '../lib/ui'
 import type { AiFoodItem } from '../../shared/types'

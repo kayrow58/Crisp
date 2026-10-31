@@ -2648,13 +2648,12 @@ select.input {
 .ai-entry-icon {
   width: 46px;
   height: 46px;
-  border-radius: 23px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: var(--yellow);
-  background: color-mix(in srgb, var(--yellow) 14%, transparent);
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--yellow) 55%, transparent));
+  background: #000;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cyan) 30%, transparent);
 }
 .ai-intro {
   display: flex;
@@ -2729,7 +2728,7 @@ select.input {
   border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
 }
 .ai-thinking-text {
-  animation: ai-phrase 1.9s ease both;
+  animation: ai-phrase 3.5s ease both;
   font-weight: 600;
 }
 @keyframes ai-phrase {
@@ -2737,8 +2736,8 @@ select.input {
     opacity: 0;
     transform: translateY(4px);
   }
-  15%,
-  85% {
+  10%,
+  90% {
     opacity: 1;
     transform: none;
   }
@@ -2923,4 +2922,94 @@ select.input {
 }
 .day-nav .icon-btn:disabled {
   opacity: 0.25;
+}
+
+/* ---------- Crisp "C" AI mark (3D while working) ---------- */
+.cmark {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  perspective: 160px;
+  vertical-align: -0.18em;
+}
+.cmark-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+/* Same proportions as the app icon: top/bottom bars 22% tall, taller spine, small gaps. */
+.cmark-bar {
+  position: absolute;
+  border-radius: 28% / 45%;
+  box-shadow: 0 0 6px color-mix(in srgb, currentColor 60%, transparent);
+}
+.cmark-bar--pink {
+  left: 6%;
+  top: 6%;
+  width: 88%;
+  height: 20%;
+  background: var(--pink);
+  color: var(--pink);
+}
+.cmark-bar--cyan {
+  left: 6%;
+  top: 30%;
+  width: 20%;
+  height: 40%;
+  border-radius: 45% / 28%;
+  background: var(--cyan);
+  color: var(--cyan);
+}
+.cmark-bar--yellow {
+  left: 6%;
+  top: 74%;
+  width: 88%;
+  height: 20%;
+  background: var(--yellow);
+  color: var(--yellow);
+}
+/* Working: the C slowly turns in 3D, bars sit at different depths, glow breathes. */
+.cmark--working .cmark-inner {
+  animation: cmark-turn 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.cmark--working .cmark-bar--pink {
+  transform: translateZ(6px);
+  animation: cmark-glow 1.6s ease-in-out infinite;
+}
+.cmark--working .cmark-bar--cyan {
+  transform: translateZ(0);
+  animation: cmark-glow 1.6s ease-in-out 0.25s infinite;
+}
+.cmark--working .cmark-bar--yellow {
+  transform: translateZ(-6px);
+  animation: cmark-glow 1.6s ease-in-out 0.5s infinite;
+}
+@keyframes cmark-turn {
+  0% {
+    transform: rotateX(14deg) rotateY(0deg);
+  }
+  50% {
+    transform: rotateX(-10deg) rotateY(180deg);
+  }
+  100% {
+    transform: rotateX(14deg) rotateY(360deg);
+  }
+}
+@keyframes cmark-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px color-mix(in srgb, currentColor 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 14px currentColor;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmark--working .cmark-inner,
+  .cmark--working .cmark-bar {
+    animation: none;
+  }
+}
+.ai-thinking .cmark {
+  margin: 2px 4px 2px 0;
 }

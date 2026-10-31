@@ -129,7 +129,7 @@ function cleanItems(list: Partial<AiFoodItem>[] | undefined): AiFoodItem[] {
       p: num(it.p) || 0,
       c: num(it.c) || 0,
       f: num(it.f) || 0,
-      estimate: !!it.estimate || !url,
+      estimate: !!it.estimate,
       sourceUrl: url,
       sourceTitle: it.sourceTitle ? String(it.sourceTitle).slice(0, 80) : undefined,
     })
@@ -139,7 +139,7 @@ function cleanItems(list: Partial<AiFoodItem>[] | undefined): AiFoodItem[] {
 }
 
 /** Pull the JSON answer out of Claude's reply: one result per food asked, in order. */
-export function parseAnswer(text: string, queries: string[]): { foods: AiFoodResult[]; note?: string } {
+export function parseAnswer(text: string, queries?: string[]): { foods: AiFoodResult[]; note?: string } {
   const fenced = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].pop()?.[1]
   const raw = fenced ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
   let parsed: { foods?: { query?: string; items?: Partial<AiFoodItem>[] }[]; items?: Partial<AiFoodItem>[]; note?: string }
@@ -148,8 +148,10 @@ export function parseAnswer(text: string, queries: string[]): { foods: AiFoodRes
   } catch {
     throw new Error('Could not read the AI answer')
   }
-  const got = parsed.foods ?? (parsed.items ? [{ query: queries[0], items: parsed.items }] : [])
-  const foods = queries.map((q, i) => ({ query: q, items: cleanItems(got[i]?.items) }))
+  const got = parsed.foods ?? (parsed.items ? [{ query: queries?.[0], items: parsed.items }] : [])
+  const foods = queries
+    ? queries.map((q, i) => ({ query: q, items: cleanItems(got[i]?.items) }))
+    : got.slice(0, 12).map((g) => ({ query: String(g.query ?? '').trim().slice(0, 120) || 'Food', items: cleanItems(g.items) })).filter((f) => f.query)
   return { foods, note: parsed.note ? String(parsed.note).slice(0, 240) : undefined }
 }
 
@@ -286,4 +288,55 @@ export function parseMeal(text: string, pool: AiCandidate[]): MealFood[] {
     })
   }
   return out
+}
+
+// ---------- Web-only mode: the whole meal in one lookup (builds the database) ----------
+const WEB_MEAL_SYSTEM = `You log meals for a US calorie-tracking app. The person typed or said everything they ate, in one go.
+1. Split it into the separate foods they ate, keeping each one's amount/size/count.
+2. Restaurant context carries over: "grilled Chick-fil-A sandwich and waffle fries" means BOTH are from Chick-fil-A. Same for "from/at <place>".
+3. Restaurant and brand items: use web search to find the official nutrition (the restaurant's or brand's own page or label first).
+   Use as FEW searches as possible — ONE search per restaurant/brand usually covers every item from there.
+4. Plain, generic foods (eggs, banana, white rice, chicken breast, milk, bread…): do NOT search. Use standard USDA values you know,
+   leave "sourceUrl" empty and set "estimate": false.
+5. No published nutrition (a local restaurant, homemade dish): best realistic estimate for a typical US portion, "estimate": true.
+6. Each food's numbers are for exactly the amount they said (e.g. "2 eggs" → serving "2 large eggs"; "medium fries" → serving "medium").
+   Calories in kcal, protein/carbs/fat in grams, whole numbers. If several versions are likely, up to 3 options, most likely first.
+Finish with ONLY this JSON in a \`\`\`json code block:
+{"foods":[{"query":"<the food as they said it>","items":[{"name":"","brand":"","serving":"","servingGrams":null,"cal":0,"p":0,"c":0,"f":0,"estimate":false,"sourceUrl":"","sourceTitle":""}]}],"note":""}
+"note" is one short sentence for the person (e.g. which sizes you assumed).`
+
+export async function askClaudeMeal(text: string): Promise<{ foods: AiFoodResult[]; note?: string }> {
+  const key = env('ANTHROPIC_API_KEY')
+  if (!key) throw new HttpError(503, 'ai_not_setup', 'AI lookup is not set up yet (missing ANTHROPIC_API_KEY).')
+  const messages: { role: 'user' | 'assistant'; content: unknown }[] = [{ role: 'user', content: `What they ate: ${text}` }]
+  let out = ''
+  for (let turn = 0; turn < 5; turn++) {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 120_000)
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 3000,
+        system: WEB_MEAL_SYSTEM,
+        messages,
+        tools: [{ type: 'web_search_20260318', name: 'web_search', max_uses: 3, allowed_callers: ['direct'], user_location: { type: 'approximate', country: 'US' } }],
+      }),
+    }).finally(() => clearTimeout(timer))
+    if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`)
+    const data = (await res.json()) as { content: Block[]; stop_reason: string }
+    out += data.content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
+    if (data.stop_reason !== 'pause_turn') break
+    messages.push({ role: 'assistant', content: data.content })
+  }
+  return parseAnswer(out)
+}
+
+// ---------- which mode the AI runs in (Admin switch) ----------
+export type AiMode = 'web' | 'database'
+export async function aiMode(): Promise<AiMode> {
+  const s = (await stores.app().get('settings', { type: 'json' }).catch(() => null)) as { aiMode?: AiMode } | null
+  return s?.aiMode === 'database' ? 'database' : 'web' // web-only by default while the database fills up
 }

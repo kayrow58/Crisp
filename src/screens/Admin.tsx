@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { PushedScreen } from '../components/Screen'
-import { Button, Card, Field, Note, Shimmer } from '../components/ui'
+import { Button, Card, Field, Note, Segmented, Shimmer } from '../components/ui'
 import { api, errorMessage } from '../lib/api'
 import { confirm, toast } from '../lib/ui'
 import { fmt, r0, showWeight, timeAgo } from '../lib/format'
@@ -35,6 +35,7 @@ interface Dash {
   recent: Ev[]
   people: Person[]
   inviteCode: string
+  aiMode?: 'web' | 'database'
   purgePrompt: boolean
 }
 
@@ -178,7 +179,7 @@ export function Admin() {
             <b>{f.customFoods30}</b>
           </li>
           <li>
-            <span>✦ AI lookups · confirmed</span>
+            <span>AI lookups · confirmed</span>
             <b>
               {f.aiLookups30 ?? 0} · {f.aiConfirmed30 ?? 0}
             </b>
@@ -230,6 +231,10 @@ export function Admin() {
           ))}
           {!d.recent.length && <li className="muted">No activity yet.</li>}
         </ul>
+      </Section>
+
+      <Section title="AI lookups">
+        <AiModeSwitch initial={d.aiMode ?? 'web'} />
       </Section>
 
       <Section title={`People (${d.people.length})`}>
@@ -436,7 +441,7 @@ function AiCredits({ uid, name }: { uid: string; name: string }) {
     <div className="admin-ai">
       <ul className="kv">
         <li>
-          <span>✦ AI lookups today</span>
+          <span>AI lookups today</span>
           <b>
             {q.used}/{q.daily}
             {q.bonus ? ` · +${q.bonus} bonus` : ''}
@@ -453,6 +458,40 @@ function AiCredits({ uid, name }: { uid: string; name: string }) {
       <Button kind="secondary" busy={busy === 'msg'} onClick={() => void saveMsg()} disabled={msg.trim() === q.message}>
         Save note
       </Button>
+    </div>
+  )
+}
+
+/** How AI finds foods: web search for every meal (builds the shared database) or database first. */
+function AiModeSwitch({ initial }: { initial: 'web' | 'database' }) {
+  const [mode, setMode] = useState(initial)
+  const set = async (m: 'web' | 'database') => {
+    const prev = mode
+    setMode(m)
+    try {
+      await api('/api/admin/ai-mode', { body: { mode: m } })
+      toast(m === 'web' ? 'AI now searches the web for every meal' : 'AI now checks the database first')
+    } catch (e) {
+      setMode(prev)
+      toast(errorMessage(e), { tone: 'error' })
+    }
+  }
+  return (
+    <div className="admin-ai">
+      <Segmented
+        label="How AI finds foods"
+        value={mode}
+        onChange={(m) => void set(m)}
+        options={[
+          { value: 'web', label: 'Web only' },
+          { value: 'database', label: 'Database first' },
+        ]}
+      />
+      <p className="muted small">
+        {mode === 'web'
+          ? 'Every meal is looked up on the web in one search (one credit per meal). Everything people confirm with “Looks good” builds the shared database.'
+          : 'Claude checks foods already in Crisp first (free) and only searches the web for new ones.'}
+      </p>
     </div>
   )
 }

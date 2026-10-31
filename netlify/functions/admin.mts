@@ -7,7 +7,7 @@ import type { AppEvent } from '../lib/events'
 import { addDays, dayKey, ymdInZone } from '../../shared/dates'
 import { streak } from '../../shared/calc'
 import type { DayIndex, Profile } from '../../shared/types'
-import { addBonus, privateMessage, quota } from '../lib/ai'
+import { addBonus, aiMode, privateMessage, quota } from '../lib/ai'
 
 export const config: Config = { path: '/api/admin/*' }
 
@@ -41,7 +41,7 @@ function monthsBack(n: number): string[] {
 }
 
 async function settings() {
-  return ((await stores.app().get('settings', { type: 'json' })) as { inviteCode?: string; lastPurgePrompt?: string } | null) ?? {}
+  return ((await stores.app().get('settings', { type: 'json' })) as { inviteCode?: string; lastPurgePrompt?: string; aiMode?: string } | null) ?? {}
 }
 
 export default handler(async (req, url) => {
@@ -136,6 +136,7 @@ export default handler(async (req, url) => {
       recent: events.slice(0, 50).map((e) => ({ ...e, name: nameOf.get(e.uid) ?? 'Someone' })),
       people,
       inviteCode: s.inviteCode ?? env('INVITE_CODE') ?? '',
+      aiMode: await aiMode(),
       purgePrompt: !!oldest && oldest < cutoff && promptDue,
     })
   }
@@ -176,6 +177,14 @@ export default handler(async (req, url) => {
     if (m) await stores.ai().set(`message/${uid}`, m)
     else await stores.ai().delete(`message/${uid}`)
     return json({ message: m })
+  }
+
+  // How ✦ AI finds foods: 'web' (every meal searched on the web — builds the database) or 'database' (database first).
+  if (r === 'ai-mode' && req.method === 'POST') {
+    const { mode } = await body<{ mode: string }>(req)
+    const next = mode === 'database' ? 'database' : 'web'
+    await stores.app().setJSON('settings', { ...(await settings()), aiMode: next })
+    return json({ aiMode: next })
   }
 
   if (r === 'invite' && req.method === 'POST') {

@@ -64,5 +64,5 @@ export function phraseOrder(): string[] {
     const j = Math.floor(Math.random() * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
-  return ["Checking Crisp's foods first…", ...a]
+  return ['Looking up your meal…', ...a]
 }

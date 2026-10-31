@@ -1,6 +1,6 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookmarkSimple, CaretUp, Lightning, MagnifyingGlass, Minus, Plus, PlusCircle, Sparkle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
+import { BookmarkSimple, CaretUp, Lightning, MagnifyingGlass, Minus, Plus, PlusCircle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
@@ -14,6 +14,7 @@ import { addToTray, clearTray, closeTray, newTrayId, openTray, removeFromTray, t
 import { mealLabel } from '../lib/meals'
 import { SaveMealSheet, mealTotals, pushSavedMeal, savedMealFood, savedMealTemplate } from './SavedMeals'
 import { AiMealSheet } from './AiMeal'
+import { CrispMark } from '../components/CrispMark'
 import { sourceDomain } from '../lib/ai'
 import { api, errorMessage } from '../lib/api'
 import { mealForHour } from '../../shared/calc'
@@ -109,7 +110,7 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
         <>
           <button className="ai-entry pressable" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} />)}>
             <span className="ai-entry-icon">
-              <Sparkle size={26} weight="fill" aria-hidden />
+              <CrispMark size={28} />
             </span>
             <span className="row-main">
               <strong>AI</strong>
@@ -311,7 +312,7 @@ function FoodList({ foods, ctx }: { foods: LibFood[]; ctx: AddCtx }) {
                 {f.custom?.source === 'ai' ? (
                   <span className="ai-label">
                     {' '}
-                    · ✦ AI{f.custom.estimate ? ' estimate' : f.custom.sourceUrl ? ` · ${sourceDomain(f.custom.sourceUrl)}` : ''}
+                    · AI{f.custom.estimate ? ' estimate' : f.custom.sourceUrl ? ` · ${sourceDomain(f.custom.sourceUrl)}` : ''}
                   </span>
                 ) : (
                   f.createdByName && <span className="by"> · added by {f.createdByName}</span>

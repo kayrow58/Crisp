@@ -4,7 +4,7 @@
 // Runs up to 15 minutes; the app polls /api/ai-food/job/<id> for the result.
 import type { Config } from '@netlify/functions'
 import { stores, getProfile } from '../lib/stores'
-import { askClaude, matchWithDatabase, privateMessage, refundCredit, spendCredit, understandMeal } from '../lib/ai'
+import { aiMode, askClaude, askClaudeMeal, matchWithDatabase, privateMessage, refundCredit, spendCredit, understandMeal } from '../lib/ai'
 import type { AiFoodResult, AiJob } from '../../shared/types'
 
 export const config: Config = { path: '/api/ai-food-run', background: true }
@@ -18,6 +18,23 @@ export default async (req: Request) => {
   if (!profile) return
   let paidWith: AiJob['paidWith']
   try {
+    // Web-only mode (Admin switch): the whole meal goes to the web in one lookup — one credit.
+    if (job.text != null && (await aiMode()) === 'web') {
+      paidWith = (await spendCredit(profile)) ?? undefined
+      if (!paidWith) {
+        const special = await privateMessage(profile.id)
+        const limit = { message: special || "You've used today's AI lookups — they reset tomorrow.", special: !!special }
+        await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'done', results: [], limit })
+        return
+      }
+      const web = await askClaudeMeal(job.text)
+      if (!web.foods.some((f) => f.items.length)) {
+        await refundCredit(profile, paidWith) // nothing found: don't charge
+        paidWith = undefined
+      }
+      await ai.setJSON(`job/${job.id}`, { ...job, runToken: undefined, status: 'done', queries: web.foods.map((f) => f.query), results: web.foods, note: web.note, paidWith })
+      return
+    }
     let results: AiFoodResult[]
     let searches: string[]
     if (job.text != null) {

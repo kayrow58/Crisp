@@ -133,7 +133,13 @@ check(r.status === 404, 'unknown AI lookups are refused')
   const parsed = aiLib.parseAnswer('Found them.\n```json\n{"foods":[{"query":"x","items":[{"name":"Spicy Chicken Sandwich","brand":"Chick-fil-A","serving":"1 sandwich","servingGrams":214,"cal":460,"p":28,"c":45,"f":19,"estimate":false,"sourceUrl":"https://www.chick-fil-a.com/menu"},{"name":"x","cal":"lots"}]},{"items":[{"name":"Waffle Potato Fries","brand":"Chick-fil-A","serving":"medium","cal":420,"p":5,"c":45,"f":24,"sourceUrl":"https://www.chick-fil-a.com/fries"}]},{"items":[]}],"note":"Regular sizes"}\n```', qs)
   check(parsed.foods.length === 3 && parsed.foods[0].items.length === 1 && parsed.foods[0].items[0].cal === 460 && parsed.foods[1].items[0].cal === 420 && parsed.foods[2].items.length === 0 && parsed.note === 'Regular sizes', 'one AI answer covers a whole meal, in order, with junk dropped')
   const est = aiLib.parseAnswer('{"foods":[{"items":[{"name":"Pad thai","serving":"1 plate","cal":800,"p":30,"c":90,"f":30}]}]}', ['pad thai'])
-  check(est.foods[0].items[0].estimate === true, 'answers without a source are marked as estimates')
+  check(est.foods[0].items[0].estimate === false && !est.foods[0].items[0].sourceUrl, 'generic foods without a link stay "typical values", not estimates')
+  const free = aiLib.parseAnswer('```json\n{"foods":[{"query":"2 eggs","items":[{"name":"Eggs, scrambled","serving":"2 large eggs","cal":182,"p":12,"c":2,"f":14}]},{"query":"grilled Chick-fil-A sandwich","items":[{"name":"Grilled Chicken Sandwich","brand":"Chick-fil-A","serving":"1 sandwich","cal":390,"p":28,"c":44,"f":12,"sourceUrl":"https://www.chick-fil-a.com/x"}]}],"note":"ok"}\n```')
+  check(free.foods.length === 2 && free.foods[0].query === '2 eggs' && free.foods[1].items[0].cal === 390, 'web-only mode reads a whole meal without a food list')
+  check((await aiLib.aiMode()) === 'web', 'AI starts in web-only mode')
+  r = await call(admin, '/api/admin/ai-mode', { tok: tKay, body: { mode: 'database' } })
+  check(r.status === 200 && (await aiLib.aiMode()) === 'database', 'admin can switch AI to database-first')
+  await call(admin, '/api/admin/ai-mode', { tok: tKay, body: { mode: 'web' } })
   const cands = [
     [{ id: 'c:abc', name: 'Chick-fil-A Waffle Potato Fries', serving: 'medium', cal: 420 }, { id: 'u:f71401000', name: 'French fries', serving: '1 serving', cal: 365 }],
     [{ id: 'u:01123', name: 'Egg, whole', serving: '1 large', cal: 72 }],
