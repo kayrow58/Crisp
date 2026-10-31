@@ -68,14 +68,8 @@ export function usePrefs(): Prefs {
   )
 }
 
+/** Crisp is dark only (neon on black) — light mode was removed. */
 export function applyTheme() {
-  const t = prefs.theme === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : prefs.theme
-  document.documentElement.setAttribute('data-theme', t)
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#F2F2F7' : '#000000')
-}
-
-try {
-  matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => prefs.theme === 'system' && applyTheme())
-} catch {
-  /* old browsers */
+  document.documentElement.setAttribute('data-theme', 'dark')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#000000')
 }

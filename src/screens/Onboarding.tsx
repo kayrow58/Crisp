@@ -281,13 +281,13 @@ function PlanStep({ draft, weightKg }: { draft: Profile; weightKg: number }) {
           </div>
           <div className="plan-macros">
             <span>
-              <b style={{ color: 'var(--protein)' }}>P</b> {t.protein} g
+              <b style={{ color: 'var(--protein-ink)' }}>P</b> {t.protein} g
             </span>
             <span>
-              <b style={{ color: 'var(--carbs)' }}>C</b> {t.carbs} g
+              <b style={{ color: 'var(--carbs-ink)' }}>C</b> {t.carbs} g
             </span>
             <span>
-              <b style={{ color: 'var(--fat)' }}>F</b> {t.fat} g
+              <b style={{ color: 'var(--fat-ink)' }}>F</b> {t.fat} g
             </span>
           </div>
         </div>

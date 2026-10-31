@@ -11,7 +11,9 @@ The tokens below are implemented in [`src/theme/tokens.css`](../src/theme/tokens
 > **Update (Oct 28):** accents now come from the logo — **pink `#FF2D95`, cyan `#00E5FF`, yellow `#FFD60A`** — instead of neon green everywhere.
 > Primary buttons and the center (+) use a pink→cyan gradient; the calorie bar, rings and weight graph use the pink→cyan→yellow logo gradient;
 > links, toggles and focus rings are cyan; each tab lights up in its own logo color (Home pink, Fitness cyan, Weight yellow, Settings cyan).
-> Light mode uses the deeper versions (pink `#D6127A`, cyan `#0089A8`/`#007A99`, yellow `#B88A00`). Tokens: `--pink`, `--cyan`, `--yellow`, `--grad`, `--grad-btn`.
+> Tokens: `--pink`, `--cyan`, `--yellow`, `--grad`, `--grad-btn`.
+>
+> **Update (Oct 30): dark only.** Light mode was removed — the neon look only works on black.
 
 ### Dark (default)
 | Token | CSS variable | Hex | Use |
@@ -50,7 +52,7 @@ The tokens below are implemented in [`src/theme/tokens.css`](../src/theme/tokens
 | Warning / over | `#C25E00` | |
 | Error | `#D70015` | |
 
-**Theme setting:** Dark (default) · Light · System. Implemented with `data-theme="dark|light"` on `<html>`; System follows `prefers-color-scheme`.
+**Theme:** dark only (Oct 30). The old Light table below is kept for reference; the app always sets `data-theme="dark"`.
 
 **Over target:** bar fills completely; extra shown as a striped orange tip plus "+120 over" text (calories and macros).
 

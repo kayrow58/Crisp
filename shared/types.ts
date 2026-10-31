@@ -123,10 +123,12 @@ export interface FoodTemplate {
   at: string
 }
 
-/** A saved meal: a named group of foods logged as one item (key 'meals'). */
+/** A recipe (was "saved meal"): a named group of foods logged by the serving (key 'meals'). */
 export interface SavedMeal {
   key: string
   name: string
+  /** recipe makes this many servings (meal prep) — macros per serving = total ÷ servings. Default 1. */
+  servings?: number
   items: Omit<FoodTemplate, 'key' | 'at'>[]
   at: string
 }

@@ -18,16 +18,18 @@ import { addEntry } from '../lib/logging'
 import { rememberBrand } from '../lib/brands'
 import { AiLimitError, aiMealLookup, aiQuota, confirmAiFood, sourceDomain, type AiResult } from '../lib/ai'
 import { phraseOrder } from '../lib/aiPhrases'
-import { closeAllSheets, closeSheet, toast } from '../lib/ui'
+import { closeAllSheets, closeSheet, openSheet, showOverlay, toast } from '../lib/ui'
 import { errorMessage } from '../lib/api'
 import { fmt, r0 } from '../lib/format'
 import { mealLabel } from '../lib/meals'
-import { track } from '../lib/store'
+import { list, saveMeal, track } from '../lib/store'
+import { ActionMenu } from '../components/SwipeRow'
+import { SaveMealSheet } from './SavedMeals'
 import { useLibrary } from './Log'
 import { usePrefs } from '../lib/prefs'
 import { MicTipCard } from '../components/MicTip'
 import { aiName, showSecretNote } from './AiLookup'
-import type { AiCandidate, AiFoodItem, Meal } from '../../shared/types'
+import type { AiCandidate, AiFoodItem, Meal, SavedMeal } from '../../shared/types'
 
 type Kind = 'database' | 'web' | 'none' | 'guess'
 
@@ -103,9 +105,23 @@ function guessCards(all: LibFood[], text: string): Card[] {
   }))
 }
 
-export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
+export function AiMealSheet({
+  date,
+  meal: m0,
+  initialText = '',
+  newRecipe,
+  recipeKey,
+}: {
+  date: string
+  meal: Meal
+  initialText?: string
+  /** building a new recipe: "Looks good" saves it as a recipe (nothing logged) */
+  newRecipe?: boolean
+  /** adding to an existing recipe: "Looks good" adds the foods to it */
+  recipeKey?: string
+}) {
   const [meal, setMeal] = useState(m0)
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText)
   const [sentText, setSentText] = useState('')
   const [phase, setPhase] = useState<'edit' | 'thinking' | 'results'>('edit')
   const [cards, setCards] = useState<Card[]>([])
@@ -223,24 +239,52 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
   const keep = cards.filter((c) => c.kind !== 'none')
   const total = useMemo(() => keep.reduce((s, c) => s + cardMacros(c).cal, 0), [keep])
 
-  const looksGood = async () => {
+  /** Confirm the web finds (saved for everyone) and turn every card into a food + amount. */
+  const collect = async () => {
+    const out: { food: LibFood; unitIndex: number; c: Card }[] = []
+    for (const c of keep) {
+      let food = c.food
+      let unitIndex = c.unitIndex
+      if (c.web) {
+        food = customToLib(await confirmAiFood(c.web.jobId, c.web.fi, c.web.pi))
+        unitIndex = 0
+      }
+      if (!food) continue
+      rememberBrand(food)
+      out.push({ food, unitIndex, c })
+    }
+    return out.map(({ food, unitIndex, c }) => {
+      const m = macrosFor(food, unitIndex, c.qty)
+      return { food, web: !!c.web, item: { foodId: food.id, name: food.name, qty: c.qty, unit: food.units[unitIndex].label, cal: m.cal, p: m.p, c: m.c, f: m.f } }
+    })
+  }
+
+  type Finish = 'log' | 'recipe' | 'both'
+  const finish = async (how: Finish) => {
     setSaving(true)
     try {
-      for (const c of keep) {
-        let food = c.food
-        let unitIndex = c.unitIndex
-        if (c.web) {
-          food = customToLib(await confirmAiFood(c.web.jobId, c.web.fi, c.web.pi)) // saved for everyone
-          unitIndex = 0
-        }
-        if (!food) continue
-        rememberBrand(food)
-        const m = macrosFor(food, unitIndex, c.qty)
-        const item = { foodId: food.id, name: food.name, qty: c.qty, unit: food.units[unitIndex].label, cal: m.cal, p: m.p, c: m.c, f: m.f }
-        if (toList) addToTray({ ...item, food })
-        else addEntry(date, { ...item, meal }, c.web ? 'ai' : usedVoice.current ? 'voice' : 'typed', { silent: true })
+      const done = await collect()
+      if (recipeKey) {
+        const r = list<SavedMeal>('meals').items.find((x) => x.key === recipeKey)
+        if (r) saveMeal({ ...r, items: [...r.items, ...done.map((d) => d.item)], at: new Date().toISOString() })
+        toast(`Added ${done.length} food${done.length === 1 ? '' : 's'} to ${r?.name ?? 'the recipe'}`)
+        closeSheet()
+        return
       }
-      toast(toList ? `${keep.length} food${keep.length === 1 ? '' : 's'} added to the list` : `Added ${keep.length} food${keep.length === 1 ? '' : 's'} to ${mealLabel(meal)}`)
+      if (how !== 'recipe') {
+        for (const d of done) {
+          if (toList) addToTray({ ...d.item, food: d.food })
+          else addEntry(date, { ...d.item, meal }, d.web ? 'ai' : usedVoice.current ? 'voice' : 'typed', { silent: true })
+        }
+      }
+      if (how !== 'log') {
+        const items = done.map((d) => d.item)
+        closeSheet()
+        openSheet(<SaveMealSheet items={items} name={recipeName(sentText, items.map((i) => i.name))} />)
+        if (how === 'both') toast(toList ? 'Added to the list' : `Added to ${mealLabel(meal)}`)
+        return
+      }
+      toast(toList ? `${done.length} food${done.length === 1 ? '' : 's'} added to the list` : `Added ${done.length} food${done.length === 1 ? '' : 's'} to ${mealLabel(meal)}`)
       if (toList) closeSheet()
       else closeAllSheets()
     } catch (e) {
@@ -249,12 +293,28 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
     }
   }
 
+  const looksGood = () => {
+    if (recipeKey) return void finish('log')
+    if (newRecipe) return void finish('recipe')
+    const where = toList ? 'Add to list' : `Add to ${mealLabel(meal)}`
+    showOverlay(
+      <ActionMenu
+        title={<strong>Looks good — what next?</strong>}
+        actions={[
+          { label: where, run: () => void finish('log') },
+          { label: 'Save as a recipe', run: () => void finish('recipe') },
+          { label: `${where} + save as a recipe`, run: () => void finish('both') },
+        ]}
+      />,
+    )
+  }
+
   const hasText = !!text.trim()
 
   return (
     <Sheet
       tall
-      title="AI"
+      title={newRecipe ? "New recipe" : recipeKey ? "Add to recipe" : "AI"}
       dirty={phase === 'results' || (hasText && phase === 'edit')}
       dirtyMessage="What you told the AI won't be added."
       footer={
@@ -287,8 +347,8 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
                   <Button kind="secondary" onClick={() => setFixing(true)} disabled={saving}>
                     Not right
                   </Button>
-                  <Button onClick={() => void looksGood()} busy={saving} disabled={!keep.length}>
-                    Looks good
+                  <Button onClick={looksGood} busy={saving} disabled={!keep.length}>
+                    {recipeKey ? 'Add to recipe' : newRecipe ? 'Save recipe' : 'Looks good'}
                   </Button>
                 </div>
               </>
@@ -297,7 +357,7 @@ export function AiMealSheet({ date, meal: m0 }: { date: string; meal: Meal }) {
         ) : undefined
       }
     >
-      {!toList && <MealBubble value={meal} onChange={setMeal} />}
+      {!toList && !newRecipe && !recipeKey && <MealBubble value={meal} onChange={setMeal} />}
 
       {phase === 'edit' ? (
         <>
@@ -519,4 +579,17 @@ function amountText(food: LibFood, unitIndex: number, qty: number) {
   if (label === 'oz') return `${fmt(qty, 2)} oz`
   if (/^[\d.½¼¾⅓⅔]/.test(label)) return qty === 1 ? label : `${fmt(qty, 2)} × ${label}`
   return `${fmt(qty, 2)} ${label}`
+}
+
+/**
+ * A starting name for a recipe: their own label if they gave one ("Meal prep: …" → "Meal prep"),
+ * otherwise the main foods ("Chicken breast, white rice & broccoli").
+ */
+function recipeName(said: string, foods: string[]) {
+  const label = said.match(/^\s*([^:,\d]{3,30}):/)?.[1]?.trim()
+  if (label) return label[0].toUpperCase() + label.slice(1)
+  const names = foods.map((n) => n.split(',')[0].trim().toLowerCase()).filter(Boolean).slice(0, 3)
+  if (!names.length) return ''
+  const joined = names.length > 1 ? `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}` : names[0]
+  return (joined[0].toUpperCase() + joined.slice(1)).slice(0, 40)
 }

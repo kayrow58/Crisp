@@ -8,7 +8,6 @@ import {
   Key,
   Lightning,
   Microphone,
-  Palette,
   Ruler,
   ScanSmiley,
   SignOut,
@@ -19,7 +18,7 @@ import {
 import { PushedScreen, TabScreen } from '../components/Screen'
 import { Button, Field, Group, Note, Row, Segmented, Toggle } from '../components/ui'
 import { getState, latestWeightKg, refresh, signOut, track, updateProfile, useStore } from '../lib/store'
-import { setPref, usePrefs, type Theme } from '../lib/prefs'
+import { setPref, usePrefs } from '../lib/prefs'
 import { confirm, openSheet, pushScreen, toast } from '../lib/ui'
 import { CM_PER_IN, healthyRangeKg, isBelowFloor, isBelowHealthy, maintenanceFor, suggestTargets } from '../../shared/calc'
 import type { ActivityLevel, ActivityMode, Goal, Sex, Targets, Units } from '../../shared/types'
@@ -51,21 +50,6 @@ export function Settings() {
       </Group>
 
       <Group title="Appearance">
-        <div className="row row--stack">
-          <span className="row-label">
-            <Palette size={20} className="row-icon" aria-hidden /> Theme
-          </span>
-          <Segmented<Theme>
-            label="Theme"
-            value={prefs.theme}
-            onChange={(v) => setAndTrack('theme', v)}
-            options={[
-              { value: 'dark', label: 'Dark' },
-              { value: 'light', label: 'Light' },
-              { value: 'system', label: 'System' },
-            ]}
-          />
-        </div>
         <div className="row row--stack">
           <span className="row-label">Macro display</span>
           <Segmented
@@ -356,13 +340,13 @@ function GoalTargets() {
           </div>
           <div className="plan-macros">
             <span>
-              <b style={{ color: 'var(--protein)' }}>P</b> {suggested.protein} g
+              <b style={{ color: 'var(--protein-ink)' }}>P</b> {suggested.protein} g
             </span>
             <span>
-              <b style={{ color: 'var(--carbs)' }}>C</b> {suggested.carbs} g
+              <b style={{ color: 'var(--carbs-ink)' }}>C</b> {suggested.carbs} g
             </span>
             <span>
-              <b style={{ color: 'var(--fat)' }}>F</b> {suggested.fat} g
+              <b style={{ color: 'var(--fat-ink)' }}>F</b> {suggested.fat} g
             </span>
           </div>
         </div>

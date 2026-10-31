@@ -15,12 +15,8 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <script>
-      // Apply saved theme before first paint to avoid a flash (Dark default, Light, System).
-      try {
-        var t = localStorage.getItem('crisp.theme') || 'dark';
-        if (t === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {}
+      // Crisp is dark only (neon on black).
+      document.documentElement.setAttribute('data-theme', 'dark');
     </script>
   </head>
   <body>

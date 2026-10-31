@@ -1,6 +1,6 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookmarkSimple, CaretUp, Lightning, MagnifyingGlass, Minus, Plus, PlusCircle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
+import { BookOpenText, BookmarkSimple, CaretUp, MagnifyingGlass, Minus, Plus, PlusCircle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
@@ -12,7 +12,7 @@ import { amountLabel, HOUR_OPTIONS, fmt, r0 } from '../lib/format'
 import { Dropdown, MealBubble, unitOptions } from '../components/Pickers'
 import { addToTray, clearTray, closeTray, newTrayId, openTray, removeFromTray, trayTotals, useTray, type TrayItem } from '../lib/tray'
 import { mealLabel } from '../lib/meals'
-import { SaveMealSheet, mealTotals, pushSavedMeal, savedMealFood, savedMealTemplate } from './SavedMeals'
+import { SaveMealSheet, openRecipes, perServing, pushSavedMeal, savedMealFood, savedMealTemplate } from './SavedMeals'
 import { AiMealSheet } from './AiMeal'
 import { CrispMark } from '../components/CrispMark'
 import { sourceDomain } from '../lib/ai'
@@ -118,8 +118,8 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
             </span>
           </button>
           <div className="quick-row">
-            <Button kind="secondary" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} toTray />)}>
-              <Lightning size={18} weight="fill" aria-hidden /> Quick add
+            <Button kind="secondary" onClick={() => openRecipes()}>
+              <BookOpenText size={18} weight="bold" aria-hidden /> Recipes
             </Button>
             <Button kind="secondary" onClick={() => openSheet(<CreateFoodSheet date={date} meal={meal} name={q} toTray />)}>
               <Plus size={18} weight="bold" aria-hidden /> Create food
@@ -158,8 +158,8 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
             {!results.length && !brands.loading && !brands.foods.length && (
               <div className="quick-row">
                 <Button onClick={() => openSheet(<CreateFoodSheet date={date} meal={meal} name={q} toTray />)}>＋ Create it</Button>
-                <Button kind="secondary" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} name={q} toTray />)}>
-                  ⚡ Quick add
+                <Button kind="secondary" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} initialText={q} />)}>
+                  <CrispMark size={16} /> Ask AI
                 </Button>
               </div>
             )}
@@ -170,8 +170,8 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
             <p className="empty-text">No match for “{q}”.</p>
             <div className="quick-row">
               <Button onClick={() => openSheet(<CreateFoodSheet date={date} meal={meal} name={q} toTray />)}>＋ Create it</Button>
-              <Button kind="secondary" onClick={() => openSheet(<QuickAddSheet date={date} meal={meal} name={q} toTray />)}>
-                ⚡ Quick add
+              <Button kind="secondary" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} initialText={q} />)}>
+                <CrispMark size={16} /> Ask AI
               </Button>
             </div>
           </div>
@@ -181,16 +181,16 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
           {err && <Note tone="error">The food library didn't load. Check your connection and try again — Quick add still works.</Note>}
           {!forSaved && savedMeals.length > 0 && (
             <section>
-              <h3 className="list-title">Saved meals</h3>
+              <h3 className="list-title">Recipes</h3>
               <ul className="list">
                 {savedMeals.slice(0, 10).map((m) => {
-                  const t = mealTotals(m)
+                  const t = perServing(m)
                   return (
                     <li key={m.key} className="food-row-wrap">
                       <button className="food-row pressable" onClick={() => pushSavedMeal(m.key)}>
                         <span className="food-name">{m.name}</span>
                         <span className="food-sub">
-                          {m.items.length} food{m.items.length === 1 ? '' : 's'} · {r0(t.cal)} cal
+                          {r0(t.cal)} cal per serving{(m.servings ?? 1) > 1 ? ` · makes ${m.servings}` : ''}
                         </span>
                       </button>
                       <button className="relog pressable" onClick={() => templateToTray(savedMealTemplate(m))} aria-label={`Add ${m.name}`}>
@@ -262,7 +262,7 @@ function TrayBar({ trayId, date, meal, target }: { trayId: number; date: string;
           {target.kind === 'day' && tray.length > 1 && (
             <li>
               <button className="link small tray-save" onClick={() => openSheet(<SaveMealSheet items={tray.map(trayToTemplate)} />)}>
-                <BookmarkSimple size={16} weight="bold" aria-hidden /> Save these as a meal
+                <BookmarkSimple size={16} weight="bold" aria-hidden /> Save as a recipe
               </button>
             </li>
           )}
@@ -470,13 +470,13 @@ export function PortionSheet({
         <span className="muted">cal</span>
         <div className="plan-macros">
           <span>
-            <b style={{ color: 'var(--protein)' }}>P</b> {fmt(m.p, 1)} g
+            <b style={{ color: 'var(--protein-ink)' }}>P</b> {fmt(m.p, 1)} g
           </span>
           <span>
-            <b style={{ color: 'var(--carbs)' }}>C</b> {fmt(m.c, 1)} g
+            <b style={{ color: 'var(--carbs-ink)' }}>C</b> {fmt(m.c, 1)} g
           </span>
           <span>
-            <b style={{ color: 'var(--fat)' }}>F</b> {fmt(m.f, 1)} g
+            <b style={{ color: 'var(--fat-ink)' }}>F</b> {fmt(m.f, 1)} g
           </span>
         </div>
       </div>

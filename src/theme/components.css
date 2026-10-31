@@ -321,7 +321,7 @@
   border: 1px solid color-mix(in srgb, var(--pink) 35%, transparent);
 }
 .info-icon {
-  color: var(--yellow);
+  color: var(--yellow-ink);
 }
 
 /* ---------- inputs ---------- */
@@ -449,7 +449,7 @@ select.input {
   transition: background 200ms ease;
 }
 .toggle--on {
-  background: var(--primary);
+  background: var(--primary-fill);
 }
 .toggle-knob {
   position: absolute;
@@ -569,7 +569,7 @@ select.input {
   font-weight: 600;
 }
 .week-day--today .week-num {
-  color: var(--pink);
+  color: var(--pink-ink);
 }
 .week-day--on {
   background: var(--raised);
@@ -867,7 +867,7 @@ select.input {
   color: var(--primary);
 }
 .relog {
-  color: var(--pink);
+  color: var(--pink-ink);
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   display: grid;
@@ -1367,7 +1367,7 @@ select.input {
   font-variant-numeric: tabular-nums;
 }
 .balance-num--neon {
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .balance-slash {
   font-size: 2rem;
@@ -1955,7 +1955,7 @@ select.input {
     var(--grad) border-box;
 }
 .bubble--on .bubble-sub {
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .meal-bubble {
   display: flex;
@@ -1986,7 +1986,7 @@ select.input {
   padding: 0 var(--s3);
 }
 .add-meal:active {
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 
 /* ---------- type what you ate ---------- */
@@ -2008,7 +2008,7 @@ select.input {
     var(--grad) border-box;
 }
 .typeit-icon {
-  color: var(--pink);
+  color: var(--pink-ink);
   flex: none;
 }
 .typeit-text {
@@ -2047,7 +2047,7 @@ select.input {
   gap: var(--s2);
 }
 .typeit-check {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   min-width: var(--touch-min);
   min-height: var(--touch-min);
   display: grid;
@@ -2099,7 +2099,7 @@ select.input {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .pad-x {
   padding: 0 4px;
@@ -2108,7 +2108,7 @@ select.input {
 /* Apple Fitness setup: finished steps get a check */
 .guide li.guide-done::marker {
   content: '✓  ';
-  color: var(--cyan);
+  color: var(--cyan-ink);
   font-weight: 700;
 }
 .time-input {
@@ -2184,11 +2184,11 @@ select.input {
   flex: 1;
 }
 .dropdown-item--on {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   font-weight: 600;
 }
 .dropdown-check {
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 
 /* ---------- Log sheet: running list ---------- */
@@ -2260,7 +2260,7 @@ select.input {
   align-items: center;
   gap: 6px;
   padding: var(--s3) 0 var(--s1);
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .search {
   position: relative;
@@ -2277,7 +2277,7 @@ select.input {
   height: 32px;
 }
 .row-time {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   font-weight: 600;
 }
 
@@ -2358,7 +2358,7 @@ select.input {
   text-align: left;
 }
 .sync-icon {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   flex: 0 0 auto;
 }
 
@@ -2381,7 +2381,7 @@ select.input {
 .info-sum-total {
   padding-top: var(--s2);
   border-top: 1px solid var(--divider);
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .balance-top {
   position: relative;
@@ -2421,7 +2421,7 @@ select.input {
   box-shadow: none;
 }
 .ai-star {
-  color: var(--yellow);
+  color: var(--yellow-ink);
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--yellow) 70%, transparent));
 }
 .ai-head {
@@ -2486,7 +2486,7 @@ select.input {
   margin-top: var(--s2);
 }
 .ai-label {
-  color: var(--yellow);
+  color: var(--yellow-ink);
   font-weight: 600;
 }
 
@@ -2523,15 +2523,15 @@ select.input {
   font-size: 30px;
 }
 .secret-hearts span {
-  color: var(--pink);
+  color: var(--pink-ink);
   animation: heart-pop 1.4s ease-in-out infinite;
 }
 .secret-hearts span:nth-child(2) {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   animation-delay: 0.2s;
 }
 .secret-hearts span:nth-child(3) {
-  color: var(--yellow);
+  color: var(--yellow-ink);
   animation-delay: 0.4s;
 }
 @keyframes heart-pop {
@@ -2609,7 +2609,7 @@ select.input {
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--yellow) 55%, transparent);
 }
 .ai-left {
-  color: var(--yellow);
+  color: var(--yellow-ink);
 }
 .ai-searching {
   opacity: 0.85;
@@ -2817,10 +2817,10 @@ select.input {
   font-weight: 600;
 }
 .ai-src--web {
-  color: var(--yellow);
+  color: var(--yellow-ink);
 }
 .ai-src--database {
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .ai-src--guess,
 .ai-src--none {
@@ -2896,7 +2896,7 @@ select.input {
   border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
 }
 .mic-tip-icon {
-  color: var(--cyan);
+  color: var(--cyan-ink);
   flex: 0 0 auto;
 }
 .mic-tip-body {
@@ -2949,7 +2949,7 @@ select.input {
   width: 88%;
   height: 20%;
   background: var(--pink);
-  color: var(--pink);
+  color: var(--pink-ink);
 }
 .cmark-bar--cyan {
   left: 6%;
@@ -2958,7 +2958,7 @@ select.input {
   height: 40%;
   border-radius: 45% / 28%;
   background: var(--cyan);
-  color: var(--cyan);
+  color: var(--cyan-ink);
 }
 .cmark-bar--yellow {
   left: 6%;
@@ -2966,7 +2966,7 @@ select.input {
   width: 88%;
   height: 20%;
   background: var(--yellow);
-  color: var(--yellow);
+  color: var(--yellow-ink);
 }
 /* Working: the C slowly turns in 3D, bars sit at different depths, glow breathes. */
 .cmark--working .cmark-inner {
@@ -3012,4 +3012,21 @@ select.input {
 }
 .ai-thinking .cmark {
   margin: 2px 4px 2px 0;
+}
+
+/* ---------- recipes ---------- */
+.servings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.recipe-log {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin-top: var(--s2);
 }

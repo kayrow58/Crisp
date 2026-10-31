@@ -24,9 +24,9 @@ export function Bar({ value, target, color, label, thick }: { value: number; tar
 }
 
 const MACROS = [
-  { key: 'p', letter: 'P', name: 'Protein', color: 'var(--protein)' },
-  { key: 'c', letter: 'C', name: 'Carbs', color: 'var(--carbs)' },
-  { key: 'f', letter: 'F', name: 'Fat', color: 'var(--fat)' },
+  { key: 'p', letter: 'P', name: 'Protein', color: 'var(--protein-ink)' },
+  { key: 'c', letter: 'C', name: 'Carbs', color: 'var(--carbs-ink)' },
+  { key: 'f', letter: 'F', name: 'Fat', color: 'var(--fat-ink)' },
 ] as const
 
 type Totals = { cal: number; p: number; c: number; f: number }
@@ -102,9 +102,9 @@ export function StatCard({
 function Rings({ totals, allowance, goals, mode }: { totals: Totals; allowance: number; goals: { p: number; c: number; f: number }; mode: 'eaten' | 'left' }) {
   const rings = [
     { v: totals.cal, g: allowance, color: 'url(#ringGrad)', label: 'Calories' },
-    { v: totals.p, g: goals.p, color: 'var(--protein)', label: 'Protein' },
-    { v: totals.c, g: goals.c, color: 'var(--carbs)', label: 'Carbs' },
-    { v: totals.f, g: goals.f, color: 'var(--fat)', label: 'Fat' },
+    { v: totals.p, g: goals.p, color: 'var(--protein-ink)', label: 'Protein' },
+    { v: totals.c, g: goals.c, color: 'var(--carbs-ink)', label: 'Carbs' },
+    { v: totals.f, g: goals.f, color: 'var(--fat-ink)', label: 'Fat' },
   ]
   const size = 150
   return (

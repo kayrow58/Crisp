@@ -78,13 +78,13 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
         <span className="muted"> cal</span>
         <div className="plan-macros">
           <span>
-            <b style={{ color: 'var(--protein)' }}>P</b> {r0(total.p)} g
+            <b style={{ color: 'var(--protein-ink)' }}>P</b> {r0(total.p)} g
           </span>
           <span>
-            <b style={{ color: 'var(--carbs)' }}>C</b> {r0(total.c)} g
+            <b style={{ color: 'var(--carbs-ink)' }}>C</b> {r0(total.c)} g
           </span>
           <span>
-            <b style={{ color: 'var(--fat)' }}>F</b> {r0(total.f)} g
+            <b style={{ color: 'var(--fat-ink)' }}>F</b> {r0(total.f)} g
           </span>
         </div>
       </div>
@@ -114,7 +114,7 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
             )
           }
         >
-          <BookmarkSimple size={16} weight="bold" aria-hidden /> Save as a meal
+          <BookmarkSimple size={16} weight="bold" aria-hidden /> Save as a recipe
         </button>
       )}
     </PushedScreen>

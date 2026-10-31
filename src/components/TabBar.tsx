@@ -6,12 +6,12 @@ export type Tab = 'home' | 'fitness' | 'weight' | 'settings'
 
 // Each tab lights up in one of the logo colors.
 const left: { id: Tab; label: string; icon: Icon; color: string }[] = [
-  { id: 'home', label: 'Home', icon: House, color: 'var(--pink)' },
-  { id: 'fitness', label: 'Fitness', icon: Sneaker, color: 'var(--cyan)' },
+  { id: 'home', label: 'Home', icon: House, color: 'var(--pink-ink)' },
+  { id: 'fitness', label: 'Fitness', icon: Sneaker, color: 'var(--cyan-ink)' },
 ]
 const right: { id: Tab; label: string; icon: Icon; color: string }[] = [
-  { id: 'weight', label: 'Weight', icon: Scales, color: 'var(--yellow)' },
-  { id: 'settings', label: 'Settings', icon: GearSix, color: 'var(--cyan)' },
+  { id: 'weight', label: 'Weight', icon: Scales, color: 'var(--yellow-ink)' },
+  { id: 'settings', label: 'Settings', icon: GearSix, color: 'var(--cyan-ink)' },
 ]
 
 type Props = {
