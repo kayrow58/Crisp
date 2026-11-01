@@ -3272,3 +3272,22 @@ select.input {
 .scroll > .field {
   flex: none;
 }
+.tray-cal--orange {
+  color: var(--zone-orange);
+}
+.tray-cal--red,
+.tray-cal--over {
+  color: var(--zone-red);
+}
+.tray-warn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  color: var(--zone-red);
+  margin: 0 0 var(--s2);
+}
+.tray-warn--over {
+  color: #ff5a6e;
+}

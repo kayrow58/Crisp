@@ -1,6 +1,7 @@
 // Log sheet (+), portion card, Quick add, Create food (spec §3.4–3.5, §4.3–4.4).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpenText, BookmarkSimple, CaretUp, MagnifyingGlass, Minus, Plus, PlusCircle, Star, Storefront, X, XCircle } from '@phosphor-icons/react'
+import { BookOpenText, BookmarkSimple, CaretUp, MagnifyingGlass, Minus, Plus, PlusCircle, Star, Storefront, WarningCircle, X, XCircle } from '@phosphor-icons/react'
+import { usePendingHeadsUp } from '../components/Weekend'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note, Shimmer } from '../components/ui'
 import { customToLib, loadLibrary, macrosFor, searchFoods, type LibFood } from '../lib/foods'
@@ -222,8 +223,9 @@ export interface AddCtx {
 function TrayBar({ trayId, date, meal, target }: { trayId: number; date: string; meal: Meal; target: LogTarget }) {
   const tray = useTray(trayId)
   const [open, setOpen] = useState(false)
-  if (!tray.length) return null
   const t = trayTotals(tray)
+  const heads = usePendingHeadsUp(date, t.cal, target.kind === 'day')
+  if (!tray.length) return null
   const post = () => {
     if (target.kind === 'saved') {
       const m = list<SavedMeal>('meals').items.find((x) => x.key === target.mealKey)
@@ -268,11 +270,17 @@ function TrayBar({ trayId, date, meal, target }: { trayId: number; date: string;
           )}
         </ul>
       )}
+      {(heads.zone === 'red' || heads.zone === 'over') && heads.zones && (
+        <p className={`tray-warn tray-warn--${heads.zone}`}>
+          <WarningCircle size={14} weight="fill" aria-hidden />
+          {heads.zone === 'over' ? `Adding this puts you ${fmt(r0(heads.after - heads.zones.maint))} cal over maintenance` : `Adding this puts you ${fmt(r0(heads.zones.maint - heads.after))} cal from maintenance`}
+        </p>
+      )}
       <div className="tray-row">
         <button className="tray-count pressable" onClick={() => setOpen(!open)} aria-expanded={open}>
           <span className="tray-badge">{tray.length}</span>
           <span className="row-main">
-            <strong>{r0(t.cal)} cal</strong>
+            <strong className={heads.zone ? `tray-cal tray-cal--${heads.zone}` : undefined}>{r0(t.cal)} cal</strong>
             <span className="muted small">
               P {r0(t.p)} · C {r0(t.c)} · F {r0(t.f)}
             </span>

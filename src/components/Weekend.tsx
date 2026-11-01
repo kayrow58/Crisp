@@ -152,6 +152,65 @@ export function MaintenanceHeadsUp({ eaten, zones }: { eaten: number; zones: Zon
   )
 }
 
+/** 0 = fine (normal/orange), 1 = within 200 of maintenance, 2 = over maintenance */
+const levelOf = (cal: number, z: Zones) => (cal >= z.maint ? 2 : cal >= z.redStart ? 1 : 0)
+
+/**
+ * Before posting: warns while foods are still in the list (or on the AI results) when they would put
+ * the day within 200 cal of maintenance, and again if they'd go over. Returns where the day would land.
+ */
+export function usePendingHeadsUp(date: string, pending: number, enabled = true) {
+  const profile = useStore((s) => s.profile)
+  const day = useDay(date)
+  const stats = dayStats(profile, day)
+  const on = enabled && weekendOnFor(date, profile)
+  const zones = on ? zonesFor(stats.allowance, stats.maintIncl) : null
+  const eaten = stats.totals.cal
+  const after = eaten + pending
+  const level = zones ? levelOf(after, zones) : 0
+  const shown = useRef<number | null>(null)
+  useEffect(() => {
+    if (!zones) return
+    if (shown.current == null) shown.current = levelOf(eaten, zones) // what was already true before this list
+    if (pending <= 0 || level <= shown.current) return
+    shown.current = level
+    setPref('weekendWarned', date)
+    const z = zones
+    const e = eaten
+    const p = pending
+    setTimeout(() => {
+      if (!getUi().overlay) showOverlay(<ListHeadsUp eaten={e} pending={p} zones={z} />)
+    }, 350)
+  }, [level, !!zones]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { zones, after, zone: zones ? zoneOf(after, zones) : null }
+}
+
+function ListHeadsUp({ eaten, pending, zones }: { eaten: number; pending: number; zones: Zones }) {
+  const after = eaten + pending
+  const over = after >= zones.maint
+  const gap = r0(Math.abs(zones.maint - after))
+  const close = () => showOverlay(null)
+  return (
+    <Popup onClose={close}>
+      <div className="popup-icon popup-icon--red">
+        <WarningCircle size={30} weight="fill" aria-hidden />
+      </div>
+      <h2 className="popup-title">{over ? `This puts you ${fmt(gap)} cal over maintenance` : `This puts you ${fmt(gap)} cal from maintenance`}</h2>
+      <p className="popup-lead">
+        You've had <b>{fmt(r0(eaten))}</b> today. With the <b>{fmt(r0(pending))}</b> cal you're adding, you'd be at <b>{fmt(r0(after))}</b> — your maintenance is about <b>{fmt(zones.maint)}</b>.
+      </p>
+      <p className="popup-sub">
+        {over
+          ? "Past maintenance is where weight gain starts. You can remove something, pick a smaller amount, or add it anyway — your call."
+          : "You're not gaining yet, but anything more today after this starts adding weight. Water or a zero-cal drink helps you coast."}
+      </p>
+      <Button className="popup-btn" onClick={close}>
+        Got it
+      </Button>
+    </Popup>
+  )
+}
+
 /** Watches today's total; when Weekend mode is on and a log crosses into red, shows the heads-up once that day. */
 export function WeekendWatcher() {
   const today = useToday()

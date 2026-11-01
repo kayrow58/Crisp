@@ -15,6 +15,7 @@ import { customToLib, macrosFor, type LibFood } from '../lib/foods'
 import { matchText } from '../lib/parse'
 import { fuzzySearch } from '../lib/match'
 import { addEntry } from '../lib/logging'
+import { usePendingHeadsUp } from '../components/Weekend'
 import { rememberBrand } from '../lib/brands'
 import { AiLimitError, aiMealLookup, aiQuota, confirmAiFood, sourceDomain, type AiResult } from '../lib/ai'
 import { phraseOrder } from '../lib/aiPhrases'
@@ -238,6 +239,8 @@ export function AiMealSheet({
   const update = (key: number, patch: Partial<Card>) => setCards((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch } : c)))
   const keep = cards.filter((c) => c.kind !== 'none')
   const total = useMemo(() => keep.reduce((s, c) => s + cardMacros(c).cal, 0), [keep])
+  // heads-up before "Looks good" if these foods would put the day near/over maintenance (the list warns on its own)
+  const heads = usePendingHeadsUp(date, phase === 'results' ? total : 0, !toList && !newRecipe && !recipeKey)
 
   /** Confirm the web finds (saved for everyone) and turn every card into a food + amount. */
   const collect = async () => {
@@ -341,8 +344,13 @@ export function AiMealSheet({
             ) : (
               <>
                 <span className="ai-bar-total">
-                  {keep.length} food{keep.length === 1 ? '' : 's'} · <strong>{fmt(r0(total))} cal</strong>
+                  {keep.length} food{keep.length === 1 ? '' : 's'} · <strong className={heads.zone ? `tray-cal tray-cal--${heads.zone}` : undefined}>{fmt(r0(total))} cal</strong>
                 </span>
+                {(heads.zone === 'red' || heads.zone === 'over') && heads.zones && (
+                  <span className={`tray-warn tray-warn--${heads.zone}`}>
+                    {heads.zone === 'over' ? `Puts you ${fmt(r0(heads.after - heads.zones.maint))} cal over maintenance` : `Puts you ${fmt(r0(heads.zones.maint - heads.after))} cal from maintenance`}
+                  </span>
+                )}
                 <div className="ai-bar-row">
                   <Button kind="secondary" onClick={() => setFixing(true)} disabled={saving}>
                     Not right
