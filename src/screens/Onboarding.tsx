@@ -169,7 +169,7 @@ export function Onboarding() {
               </button>
               <button className={`choice pressable${mode === 'track' ? ' choice--on' : ''}`} onClick={() => setMode('track')} aria-pressed={mode === 'track'}>
                 <strong>Track my activity</strong>
-                <span className="choice-sub">Log steps and workouts (or sync Apple Fitness). Your allowance grows with what you do.</span>
+                <span className="choice-sub">Log steps and workouts. Your allowance grows with what you do.</span>
               </button>
             </div>
             {mode === 'level' && (

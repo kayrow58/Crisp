@@ -3291,3 +3291,142 @@ select.input {
 .tray-warn--over {
   color: #ff5a6e;
 }
+
+/* ---------- Separation: sheets over screens, sheets over sheets, the list over results ---------- */
+.sheet-dim {
+  background: rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.sheet {
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+}
+.sheet::before {
+  /* thin neon edge along the top so the sheet reads as a layer */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cyan) 60%, transparent), color-mix(in srgb, var(--pink) 60%, transparent), transparent);
+  pointer-events: none;
+}
+/* a sheet with another sheet on top of it shrinks back, like iPhone's stacked cards */
+.sheet-layer--behind .sheet {
+  transform: scale(0.93) translateY(-14px) !important;
+  transform-origin: top center;
+  filter: brightness(0.6);
+  transition: transform 260ms var(--spring), filter 260ms ease;
+}
+.sheet-layer--behind .sheet-dim {
+  opacity: 0;
+}
+.tray {
+  position: relative;
+  border-top: none;
+  background: #0d0d0f;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.55);
+}
+.tray::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 18px 18px 0 0;
+  background: var(--grad-btn);
+  opacity: 0.85;
+}
+.tray-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--t-caption);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.tray--open .tray-list {
+  gap: 6px;
+}
+.tray--open .tray-item {
+  background: var(--raised);
+  border: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
+  border-radius: 12px;
+  padding: var(--s2) var(--s3);
+}
+.pick-group {
+  display: grid;
+  gap: 6px;
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--divider);
+}
+.pick-row--on {
+  border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
+  background: color-mix(in srgb, var(--cyan) 8%, var(--card));
+}
+.pick-box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid var(--divider);
+  display: grid;
+  place-items: center;
+  color: #000;
+}
+.pick-row--on .pick-box {
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+.ai-edit--review {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ai-edit--review .dropdown,
+.ai-edit--review > :not(.stepper):not(.ai-remove) {
+  flex: 1;
+  min-width: 120px;
+}
+.ai-remove {
+  margin-left: auto;
+  color: var(--error);
+}
+.ai-review-hint {
+  font-size: var(--t-subhead);
+  color: var(--text-2);
+}
+/* the sheet on top sits a little lower so the one behind peeks out above it */
+.sheet-layer--behind ~ .sheet-layer .sheet--tall {
+  height: calc(100% - var(--safe-top) - 48px);
+}
+.sheet-layer--behind ~ .sheet-layer .sheet-dim {
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.sheet-layer--behind .sheet {
+  filter: brightness(0.75);
+}
+.ai-recipe-link {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--s2) var(--s3);
+  color: var(--cyan-ink);
+}

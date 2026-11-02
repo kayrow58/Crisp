@@ -4,6 +4,9 @@ import { getState, track } from './store'
 import { setPref } from './prefs'
 import { toast } from './ui'
 
+/** Apple Fitness sync is switched off for now (Kay may bring it back with a better idea). Flip to true to restore. */
+export const FITNESS_SYNC = false
+
 export const SHORTCUT_NAME = 'Crisp Sync'
 
 export function runCrispSync(from: 'fitness' | 'connect') {

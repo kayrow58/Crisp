@@ -20,8 +20,10 @@ export function Overlays() {
           {s.node}
         </div>
       ))}
-      {sheets.map((s) => (
-        <div key={s.id}>{s.node}</div>
+      {sheets.map((s, i) => (
+        <div key={s.id} className={`sheet-layer${i < sheets.length - 1 ? ' sheet-layer--behind' : ''}`}>
+          {s.node}
+        </div>
       ))}
       {overlay && <div key={overlay.id}>{overlay.node}</div>}
       <AlertHost />

@@ -1,10 +1,10 @@
 // AI — talk or type what you ate, once. Claude reads the whole meal (restaurant context carries
 // over: "grilled Chick-fil-A sandwich and waffle fries" = both from Chick-fil-A), matches foods already in
 // Crisp's database (free), and searches the web only for what's new (one credit per meal).
-// Results come back as thin cards. One bar at the bottom: Looks good (saves everything) / Not right
+// Results come back as thin cards. Looks good → check amounts / remove foods → Add to the meal. Not right
 // (pick the wrong cards, say what's wrong, search again).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Microphone, Minus, Plus, Stop, X } from '@phosphor-icons/react'
+import { BookmarkSimple, Microphone, Minus, Plus, Stop, Trash, X } from '@phosphor-icons/react'
 import { CrispMark } from '../components/CrispMark'
 import { Sheet } from '../components/Sheet'
 import { Button, Note } from '../components/ui'
@@ -19,18 +19,17 @@ import { usePendingHeadsUp } from '../components/Weekend'
 import { rememberBrand } from '../lib/brands'
 import { AiLimitError, aiMealLookup, aiQuota, confirmAiFood, sourceDomain, type AiResult } from '../lib/ai'
 import { phraseOrder } from '../lib/aiPhrases'
-import { closeAllSheets, closeSheet, openSheet, showOverlay, toast } from '../lib/ui'
+import { closeAllSheets, closeSheet, openSheet, toast } from '../lib/ui'
 import { errorMessage } from '../lib/api'
 import { fmt, r0 } from '../lib/format'
 import { mealLabel } from '../lib/meals'
-import { list, saveMeal, track } from '../lib/store'
-import { ActionMenu } from '../components/SwipeRow'
+import { track } from '../lib/store'
 import { SaveMealSheet } from './SavedMeals'
 import { useLibrary } from './Log'
 import { usePrefs } from '../lib/prefs'
 import { MicTipCard } from '../components/MicTip'
 import { aiName, showSecretNote } from './AiLookup'
-import type { AiCandidate, AiFoodItem, Meal, SavedMeal } from '../../shared/types'
+import type { AiCandidate, AiFoodItem, Meal } from '../../shared/types'
 
 type Kind = 'database' | 'web' | 'none' | 'guess'
 
@@ -110,16 +109,10 @@ export function AiMealSheet({
   date,
   meal: m0,
   initialText = '',
-  newRecipe,
-  recipeKey,
 }: {
   date: string
   meal: Meal
   initialText?: string
-  /** building a new recipe: "Looks good" saves it as a recipe (nothing logged) */
-  newRecipe?: boolean
-  /** adding to an existing recipe: "Looks good" adds the foods to it */
-  recipeKey?: string
 }) {
   const [meal, setMeal] = useState(m0)
   const [text, setText] = useState(initialText)
@@ -128,6 +121,8 @@ export function AiMealSheet({
   const [cards, setCards] = useState<Card[]>([])
   const [open, setOpen] = useState<number | null>(null)
   const [fixing, setFixing] = useState(false)
+  /** after "Looks good": every food shows its amount and a remove button, then one tap adds them */
+  const [reviewing, setReviewing] = useState(false)
   const [fixes, setFixes] = useState<Record<number, string>>({})
   const [msg, setMsg] = useState('')
   const [left, setLeft] = useState<number | null>(null)
@@ -240,7 +235,7 @@ export function AiMealSheet({
   const keep = cards.filter((c) => c.kind !== 'none')
   const total = useMemo(() => keep.reduce((s, c) => s + cardMacros(c).cal, 0), [keep])
   // heads-up before "Looks good" if these foods would put the day near/over maintenance (the list warns on its own)
-  const heads = usePendingHeadsUp(date, phase === 'results' ? total : 0, !toList && !newRecipe && !recipeKey)
+  const heads = usePendingHeadsUp(date, phase === 'results' ? total : 0, !toList)
 
   /** Confirm the web finds (saved for everyone) and turn every card into a food + amount. */
   const collect = async () => {
@@ -262,30 +257,14 @@ export function AiMealSheet({
     })
   }
 
-  type Finish = 'log' | 'recipe' | 'both'
-  const finish = async (how: Finish) => {
+  /** Add straight to the meal (or the list). No extra menu — the meal was picked at the top. */
+  const addAll = async () => {
     setSaving(true)
     try {
       const done = await collect()
-      if (recipeKey) {
-        const r = list<SavedMeal>('meals').items.find((x) => x.key === recipeKey)
-        if (r) saveMeal({ ...r, items: [...r.items, ...done.map((d) => d.item)], at: new Date().toISOString() })
-        toast(`Added ${done.length} food${done.length === 1 ? '' : 's'} to ${r?.name ?? 'the recipe'}`)
-        closeSheet()
-        return
-      }
-      if (how !== 'recipe') {
-        for (const d of done) {
-          if (toList) addToTray({ ...d.item, food: d.food })
-          else addEntry(date, { ...d.item, meal }, d.web ? 'ai' : usedVoice.current ? 'voice' : 'typed', { silent: true })
-        }
-      }
-      if (how !== 'log') {
-        const items = done.map((d) => d.item)
-        closeSheet()
-        openSheet(<SaveMealSheet items={items} name={recipeName(sentText, items.map((i) => i.name))} />)
-        if (how === 'both') toast(toList ? 'Added to the list' : `Added to ${mealLabel(meal)}`)
-        return
+      for (const d of done) {
+        if (toList) addToTray({ ...d.item, food: d.food })
+        else addEntry(date, { ...d.item, meal }, d.web ? 'ai' : usedVoice.current ? 'voice' : 'typed', { silent: true })
       }
       toast(toList ? `${done.length} food${done.length === 1 ? '' : 's'} added to the list` : `Added ${done.length} food${done.length === 1 ? '' : 's'} to ${mealLabel(meal)}`)
       if (toList) closeSheet()
@@ -296,20 +275,17 @@ export function AiMealSheet({
     }
   }
 
-  const looksGood = () => {
-    if (recipeKey) return void finish('log')
-    if (newRecipe) return void finish('recipe')
-    const where = toList ? 'Add to list' : `Add to ${mealLabel(meal)}`
-    showOverlay(
-      <ActionMenu
-        title={<strong>Looks good — what next?</strong>}
-        actions={[
-          { label: where, run: () => void finish('log') },
-          { label: 'Save as a recipe', run: () => void finish('recipe') },
-          { label: `${where} + save as a recipe`, run: () => void finish('both') },
-        ]}
-      />,
-    )
+  /** Optional: also keep these foods as a recipe (doesn't log anything, the sheet stays open). */
+  const saveAsRecipe = async () => {
+    setSaving(true)
+    try {
+      const done = await collect()
+      const items = done.map((d) => d.item)
+      openSheet(<SaveMealSheet items={items} name={recipeName(sentText, items.map((i) => i.name))} />)
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    }
+    setSaving(false)
   }
 
   const hasText = !!text.trim()
@@ -317,7 +293,7 @@ export function AiMealSheet({
   return (
     <Sheet
       tall
-      title={newRecipe ? "New recipe" : recipeKey ? "Add to recipe" : "AI"}
+      title={reviewing ? 'Check amounts' : 'AI'}
       dirty={phase === 'results' || (hasText && phase === 'edit')}
       dirtyMessage="What you told the AI won't be added."
       footer={
@@ -351,21 +327,32 @@ export function AiMealSheet({
                     {heads.zone === 'over' ? `Puts you ${fmt(r0(heads.after - heads.zones.maint))} cal over maintenance` : `Puts you ${fmt(r0(heads.zones.maint - heads.after))} cal from maintenance`}
                   </span>
                 )}
-                <div className="ai-bar-row">
-                  <Button kind="secondary" onClick={() => setFixing(true)} disabled={saving}>
-                    Not right
-                  </Button>
-                  <Button onClick={looksGood} busy={saving} disabled={!keep.length}>
-                    {recipeKey ? 'Add to recipe' : newRecipe ? 'Save recipe' : 'Looks good'}
-                  </Button>
-                </div>
+                {reviewing ? (
+                  <div className="ai-bar-row">
+                    <Button kind="secondary" onClick={() => setReviewing(false)} disabled={saving}>
+                      Back
+                    </Button>
+                    <Button onClick={addAll} busy={saving} disabled={!keep.length}>
+                      {toList ? 'Add to list' : `Add to ${mealLabel(meal)}`}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="ai-bar-row">
+                    <Button kind="secondary" onClick={() => setFixing(true)} disabled={saving}>
+                      Not right
+                    </Button>
+                    <Button onClick={() => (setReviewing(true), setOpen(null))} disabled={!keep.length}>
+                      Looks good
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </div>
         ) : undefined
       }
     >
-      {!toList && !newRecipe && !recipeKey && <MealBubble value={meal} onChange={setMeal} />}
+      {!toList && <MealBubble value={meal} onChange={setMeal} />}
 
       {phase === 'edit' ? (
         <>
@@ -430,13 +417,15 @@ export function AiMealSheet({
 
       {phase === 'results' && (
         <>
-          {msg && <p className="muted small">{msg}</p>}
+          {msg && !reviewing && <p className="muted small">{msg}</p>}
+          {reviewing && <p className="ai-review-hint">Change any amount, or remove anything the AI got wrong.</p>}
           <div className="ai-cards">
-            {cards.map((c) => (
+            {(reviewing ? keep : cards).map((c) => (
               <AiCard
                 key={c.key}
                 card={c}
                 open={open === c.key && !fixing}
+                review={reviewing}
                 fixing={fixing}
                 fix={fixes[c.key]}
                 onTap={() => {
@@ -452,6 +441,11 @@ export function AiMealSheet({
               />
             ))}
           </div>
+          {!fixing && keep.length > 0 && (
+            <button className="link small ai-recipe-link" onClick={saveAsRecipe} disabled={saving}>
+              <BookmarkSimple size={16} weight="bold" aria-hidden /> Add to recipes
+            </button>
+          )}
         </>
       )}
     </Sheet>
@@ -485,7 +479,9 @@ function AiCard({
   onFix,
   onRemove,
   onChange,
+  review,
 }: {
+  review?: boolean
   card: Card
   open: boolean
   fixing: boolean
@@ -547,8 +543,8 @@ function AiCard({
           </button>
         </div>
       )}
-      {open && c.kind !== 'none' && (
-        <div className="ai-edit">
+      {(open || review) && c.kind !== 'none' && (
+        <div className={`ai-edit${review ? ' ai-edit--review' : ''}`}>
           <div className="stepper">
             <button className="stepper-btn pressable" onClick={() => onChange({ qty: Math.max(0, Math.round((c.qty - step) * 100) / 100) })} aria-label="Less">
               <Minus size={18} weight="bold" />
@@ -570,10 +566,15 @@ function AiCard({
               options={unitOptions(c.food.units)}
             />
           )}
-          {c.web?.item.sourceUrl && (
+          {c.web?.item.sourceUrl && !review && (
             <a className="link small" href={c.web.item.sourceUrl} target="_blank" rel="noreferrer">
               See where this came from
             </a>
+          )}
+          {review && (
+            <button className="icon-btn ai-remove pressable" onClick={onRemove} aria-label={`Remove ${name}`}>
+              <Trash size={18} weight="bold" />
+            </button>
           )}
         </div>
       )}

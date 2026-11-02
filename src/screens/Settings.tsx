@@ -32,7 +32,7 @@ import { Admin } from './Admin'
 import { SHORTCUT_URL } from '../config'
 import { ChipRow } from '../components/Pickers'
 import { MicTipSheet } from '../components/MicTip'
-import { SHORTCUT_NAME, runCrispSync } from '../lib/fitnessSync'
+import { FITNESS_SYNC, SHORTCUT_NAME, runCrispSync } from '../lib/fitnessSync'
 
 export function Settings() {
   const p = useStore((s) => s.profile)!
@@ -100,9 +100,11 @@ export function Settings() {
         <NotificationsRow />
       </Group>
 
-      <Group title="Connections">
-        <Row icon={Heartbeat} label="Connect Apple Fitness" value={p.fitnessLastSync ? `Synced ${timeAgo(p.fitnessLastSync)}` : undefined} onClick={() => pushScreen(<ConnectFitness />)} />
-      </Group>
+      {FITNESS_SYNC && (
+        <Group title="Connections">
+          <Row icon={Heartbeat} label="Connect Apple Fitness" value={p.fitnessLastSync ? `Synced ${timeAgo(p.fitnessLastSync)}` : undefined} onClick={() => pushScreen(<ConnectFitness />)} />
+        </Group>
+      )}
 
       <Group title="Help">
         <Row icon={Microphone} label="Microphone keeps asking?" onClick={() => openSheet(<MicTipSheet />)} />

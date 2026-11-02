@@ -2,12 +2,12 @@
 // no new AI search each time. Meal prep: "makes 5" → macros per container.
 // (Stored as the 'meals' list; older "saved meals" are recipes with 1 serving.)
 import { useState } from 'react'
-import { Minus, Plus, PlusCircle, Trash, X } from '@phosphor-icons/react'
+import { Check, Minus, Plus, PlusCircle, Trash, X } from '@phosphor-icons/react'
 import { Sheet } from '../components/Sheet'
 import { Button, Field, Note } from '../components/ui'
 import { MealBubble } from '../components/Pickers'
-import { CrispMark } from '../components/CrispMark'
-import { deleteMeal, list, saveMeal, today, useList } from '../lib/store'
+import { deleteMeal, list, saveMeal, today, useDay, useList } from '../lib/store'
+import { displayMeal, useMeals } from '../lib/meals'
 import { addEntry } from '../lib/logging'
 import { addToTray, trayActive } from '../lib/tray'
 import { closeSheet, confirm, openSheet, toast } from '../lib/ui'
@@ -17,7 +17,6 @@ import { savedBrand } from '../lib/brands'
 import { getState } from '../lib/store'
 import { customToLib } from '../lib/foods'
 import { defaultMeal, openLogForSavedMeal, PortionSheet } from './Log'
-import { AiMealSheet } from './AiMeal'
 import type { FoodTemplate, Meal, SavedMeal } from '../../shared/types'
 
 type Item = Omit<FoodTemplate, 'key' | 'at'>
@@ -56,6 +55,73 @@ export function openRecipes() {
 const newKey = () => Math.random().toString(36).slice(2, 10)
 
 /** Name and save a group of foods as a recipe. */
+/** Make a recipe from foods already logged: pick them one by one, from any meal that day. */
+export function PickRecipeFoodsSheet({ date, meal }: { date: string; meal: Meal }) {
+  const day = useDay(date)
+  const meals = useMeals()
+  const profile = getState().profile
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(day.foods.filter((f) => displayMeal(f.meal, profile) === meal).map((f) => f.id)))
+  const toggle = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const chosen = day.foods.filter((f) => picked.has(f.id))
+  const cal = chosen.reduce((a, f) => a + f.cal, 0)
+  const next = () => {
+    const items = chosen.map((f) => ({ foodId: f.foodId, name: f.name, qty: f.qty, unit: f.unit, cal: f.cal, p: f.p, c: f.c, f: f.f }))
+    closeSheet()
+    openSheet(<SaveMealSheet items={items} />)
+  }
+  return (
+    <Sheet
+      tall
+      title="Pick foods for a recipe"
+      footer={
+        <div className="tray">
+          <div className="tray-row">
+            <span className="row-main">
+              <strong>
+                {chosen.length} food{chosen.length === 1 ? '' : 's'} · {fmt(r0(cal))} cal
+              </strong>
+            </span>
+            <Button className="tray-post" onClick={next} disabled={!chosen.length}>
+              Next
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <p className="muted small">Tap the foods that belong in this recipe — from any meal today.</p>
+      {meals.map(({ id, label }) => {
+        const foods = day.foods.filter((f) => displayMeal(f.meal, profile) === id)
+        if (!foods.length) return null
+        return (
+          <div key={id} className="pick-group">
+            <span className="tray-head">{label}</span>
+            {foods.map((f) => {
+              const on = picked.has(f.id)
+              return (
+                <button key={f.id} className={`pick-row pressable${on ? ' pick-row--on' : ''}`} onClick={() => toggle(f.id)} role="checkbox" aria-checked={on}>
+                  <span className="pick-box">{on && <Check size={14} weight="bold" />}</span>
+                  <span className="row-main">
+                    <span className="tray-name">{f.name}</span>
+                    <span className="muted small">
+                      {amountLabel(f.qty, f.unit)} · {r0(f.cal)} cal
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      })}
+    </Sheet>
+  )
+}
+
 export function SaveMealSheet({ items, name: n0 = '', onSaved }: { items: Item[]; name?: string; onSaved?: () => void }) {
   const [name, setName] = useState(n0)
   const [servings, setServings] = useState(1)
@@ -114,15 +180,10 @@ function RecipesSheet() {
   }
   return (
     <Sheet tall title="Recipes">
-      <p className="muted small">Describe a meal once, then log it by the serving — no new AI search each time.</p>
-      <div className="quick-row">
-        <Button kind="secondary" onClick={() => openSheet(<AiMealSheet date={today()} meal={defaultMeal()} newRecipe />)}>
-          <CrispMark size={18} /> New with AI
-        </Button>
-        <Button kind="secondary" onClick={newFromFoods}>
-          <Plus size={18} weight="bold" aria-hidden /> From foods
-        </Button>
-      </div>
+      <p className="muted small">Build a meal once from your foods, then log it by the serving. Or open any meal you logged and tap “Save as a recipe” to pick foods from it.</p>
+      <Button kind="secondary" onClick={newFromFoods}>
+        <Plus size={18} weight="bold" aria-hidden /> New recipe
+      </Button>
       {recipes.length ? (
         <ul className="list">
           {recipes.map((m) => {
@@ -269,16 +330,11 @@ export function SavedMealSheet({ mealKey }: { mealKey: string }) {
           ))}
         </ul>
       ) : (
-        <p className="muted small">Nothing in it yet — add foods by search or tell the AI.</p>
+        <p className="muted small">Nothing in it yet — add foods to build it.</p>
       )}
-      <div className="quick-row">
-        <Button kind="secondary" onClick={() => openSheet(<AiMealSheet date={today()} meal={meal} recipeKey={m.key} />)}>
-          <CrispMark size={18} /> Add with AI
-        </Button>
-        <Button kind="secondary" onClick={() => openLogForSavedMeal(m.key)}>
-          <Plus size={18} weight="bold" aria-hidden /> Add foods
-        </Button>
-      </div>
+      <Button kind="secondary" onClick={() => openLogForSavedMeal(m.key)}>
+        <Plus size={18} weight="bold" aria-hidden /> Add foods
+      </Button>
       <div className="recipe-log">
         {!inTray && <MealBubble value={meal} onChange={setMeal} prefix="Log to" />}
         <div className="stepper">

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowsClockwise, Barbell, CaretLeft, CaretRight, Info, Sneaker } from '@phosphor-icons/react'
 import { InfoSheet } from '../components/InfoSheet'
-import { runCrispSync } from '../lib/fitnessSync'
+import { FITNESS_SYNC, runCrispSync } from '../lib/fitnessSync'
 import { TabScreen } from '../components/Screen'
 import { Sheet } from '../components/Sheet'
 import { SwipeRow } from '../components/SwipeRow'
@@ -31,7 +31,7 @@ export function Fitness() {
   }, [])
   return (
     <TabScreen title="Fitness" onRefresh={refresh}>
-      <SyncButton last={last} />
+      {FITNESS_SYNC && <SyncButton last={last} />}
       <Segmented
         label="View"
         value={view}
@@ -100,7 +100,7 @@ function Today({ date, today, setDate }: { date: string; today: string; setDate:
           <CaretRight size={20} weight="bold" />
         </button>
       </div>
-      {stale && (
+      {FITNESS_SYNC && stale && (
         <Card className="info-card">
           <p>
             <strong>Apple Fitness hasn't synced in {daysBetween(last!.slice(0, 10), date)} days.</strong>
@@ -182,7 +182,7 @@ function Today({ date, today, setDate }: { date: string; today: string; setDate:
       ) : (
         <p className="muted pad">No workouts {date === today ? 'yet today' : 'this day'}.</p>
       )}
-      {edited && profile?.fitnessLastSync && (
+      {FITNESS_SYNC && edited && profile?.fitnessLastSync && (
         <button
           className="link small center"
           onClick={() => {

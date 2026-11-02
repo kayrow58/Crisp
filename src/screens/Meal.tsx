@@ -9,7 +9,7 @@ import { ForkKnife } from '@phosphor-icons/react'
 import { useDay, useList } from '../lib/store'
 import { copyToToday, deleteEntry, isFavorite, moveEntry, toggleFavorite } from '../lib/logging'
 import { amountLabel, fmt, hourLabel, r0 } from '../lib/format'
-import { SaveMealSheet } from './SavedMeals'
+import { PickRecipeFoodsSheet } from './SavedMeals'
 import { displayMeal, mealLabel, mealsFor, removeExtraMeal, renameExtraMeal } from '../lib/meals'
 import { getState, useStore } from '../lib/store'
 import { closeSheet, confirm, openSheet, popScreen, showOverlay, toast } from '../lib/ui'
@@ -102,18 +102,8 @@ export function MealScreen({ date, meal }: { date: string; meal: Meal }) {
           ))}
         </div>
       )}
-      {foods.length > 1 && (
-        <button
-          className="add-meal"
-          onClick={() =>
-            openSheet(
-              <SaveMealSheet
-                name={mealLabel(meal)}
-                items={foods.map((f) => ({ foodId: f.foodId, name: f.name, qty: f.qty, unit: f.unit, cal: f.cal, p: f.p, c: f.c, f: f.f }))}
-              />,
-            )
-          }
-        >
+      {foods.length > 0 && (
+        <button className="add-meal" onClick={() => openSheet(<PickRecipeFoodsSheet date={date} meal={meal} />)}>
           <BookmarkSimple size={16} weight="bold" aria-hidden /> Save as a recipe
         </button>
       )}

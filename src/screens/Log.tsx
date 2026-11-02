@@ -109,7 +109,7 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
       </div>
       {!q.trim() && (
         <>
-          <button className="ai-entry pressable" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} />)}>
+          {!forSaved && <button className="ai-entry pressable" onClick={() => openSheet(<AiMealSheet date={date} meal={meal} />)}>
             <span className="ai-entry-icon">
               <CrispMark size={28} />
             </span>
@@ -117,7 +117,7 @@ function LogSheet({ date, initialMeal, target = { kind: 'day' } }: { date: strin
               <strong>AI</strong>
               <span className="muted small">Tell me what you ate — talk or type once. Restaurants and brands too.</span>
             </span>
-          </button>
+          </button>}
           <div className="quick-row">
             <Button kind="secondary" onClick={() => openRecipes()}>
               <BookOpenText size={18} weight="bold" aria-hidden /> Recipes
@@ -245,7 +245,15 @@ function TrayBar({ trayId, date, meal, target }: { trayId: number; date: string;
     closeSheet()
   }
   return (
-    <div className="tray">
+    <div className={`tray${open ? ' tray--open' : ''}`}>
+      {open && (
+        <div className="tray-head">
+          <span>In your list</span>
+          <button className="link small" onClick={() => setOpen(false)}>
+            Hide
+          </button>
+        </div>
+      )}
       {open && (
         <ul className="tray-list">
           {tray.map((i) => (
