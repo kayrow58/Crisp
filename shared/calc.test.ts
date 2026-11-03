@@ -61,13 +61,17 @@ describe('targets', () => {
 })
 
 describe('activity', () => {
-  it('converts steps at ~0.04 cal per step per 150 lb', () => {
-    expect(stepCalories(10000, lbToKg(150))).toBeCloseTo(400)
-    expect(stepCalories(10000, lbToKg(200))).toBeCloseTo(533.3, 0)
+  it('counts only the extra burn from walking: ~0.3 cal per lb per mile', () => {
+    // no height → 2,200 steps a mile
+    expect(stepCalories(10000, lbToKg(150))).toBeCloseTo(204.5, 0)
+    // 259 lb, 6'0" (183 cm): 13,071 steps ≈ 6.2 mi → ~479
+    expect(stepCalories(13071, lbToKg(259), 183)).toBeCloseTo(479, -1)
+    // taller people cover more ground per step
+    expect(stepCalories(10000, 80, 190)).toBeGreaterThan(stepCalories(10000, 80, 160))
   })
   it('adds 50% of workouts and 100% of steps only in Track mode', () => {
     const day = { ...emptyDay('2026-01-01'), steps: { count: 5000, source: 'manual' as const, updatedAt: '' }, workouts: [{ id: 'w', type: 'Run', minutes: 30, cal: 400, source: 'manual' as const, at: '' }] }
-    expect(activityBonus(day, lbToKg(150), 'track')).toEqual({ steps: 200, workouts: 200, total: 400 })
+    expect(activityBonus(day, lbToKg(150), 'track')).toEqual({ steps: 102, workouts: 200, total: 302 })
     expect(activityBonus(day, lbToKg(150), 'level').total).toBe(0)
   })
 })

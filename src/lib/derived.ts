@@ -17,7 +17,7 @@ export function dayStats(p: Profile | null, day: DayDoc) {
   const t = targetsFor(p)
   const kg = latestWeightKg() ?? 70
   const mode = p?.activityMode ?? 'level'
-  const bonus = activityBonus(day, kg, mode)
+  const bonus = activityBonus(day, kg, mode, p?.heightCm)
   const totals = dayTotals(day)
   const allowance = Math.round(t.calories + bonus.total)
   const maint = p ? maintenanceFor(p, kg) : null

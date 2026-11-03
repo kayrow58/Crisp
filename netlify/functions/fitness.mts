@@ -65,7 +65,7 @@ export default handler(async (req) => {
     const weights = ((await stores.userdata().get(`${uid}/weights`, { type: 'json' }).catch(() => null)) as { items?: WeightEntry[] } | null)?.items ?? []
     const latest = [...weights].sort((a, c) => a.date.localeCompare(c.date)).pop()
     const kg = latest?.kg ?? profile.startWeightKg ?? 75
-    const extra = Math.max(0, num(b.activeCalories) - stepCalories(steps, kg))
+    const extra = Math.max(0, num(b.activeCalories) - stepCalories(steps, kg, profile.heightCm))
     const minutes = Math.round(num(b.exerciseMinutes))
     if (minutes > 0 || extra >= 20) {
       list.push({ id: `sc-${randomId(6)}`, type: 'Exercise', minutes, cal: Math.round(extra), source: 'shortcut', at: now })

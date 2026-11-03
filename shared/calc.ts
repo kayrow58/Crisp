@@ -104,9 +104,18 @@ export function maintenanceFor(p: Profile, currentKg: number): number | null {
   return maintenance(p.sex, currentKg, p.heightCm, ageFrom(p.birthYear), p.activityMode, p.activityLevel)
 }
 
-/** Calories from steps: ~0.04 cal per step per 150 lb of body weight (added at 100%). */
-export function stepCalories(steps: number, kg: number): number {
-  return steps * 0.04 * (kgToLb(kg) / 150)
+/** Steps in a mile from height (stride ≈ 41.5% of height); ~2,200 when height isn't known. */
+export function stepsPerMile(heightCm?: number): number {
+  if (!heightCm || heightCm < 100) return 2200
+  return 160934 / (heightCm * 0.415)
+}
+
+/**
+ * Extra calories from walking: ~0.3 cal per lb per mile (net — the body's "staying alive" calories
+ * are already in the base target, so they aren't counted again here).
+ */
+export function stepCalories(steps: number, kg: number, heightCm?: number): number {
+  return (steps / stepsPerMile(heightCm)) * 0.3 * kgToLb(kg)
 }
 
 export function workoutCalories(day: DayDoc | undefined): number {
@@ -114,9 +123,9 @@ export function workoutCalories(day: DayDoc | undefined): number {
 }
 
 /** What logged activity adds to today's allowance (Track mode only). */
-export function activityBonus(day: DayDoc | undefined, kg: number, mode: ActivityMode) {
+export function activityBonus(day: DayDoc | undefined, kg: number, mode: ActivityMode, heightCm?: number) {
   if (mode !== 'track') return { steps: 0, workouts: 0, total: 0 }
-  const steps = Math.round(stepCalories(day?.steps?.count ?? 0, kg))
+  const steps = Math.round(stepCalories(day?.steps?.count ?? 0, kg, heightCm))
   const workouts = Math.round(0.5 * workoutCalories(day))
   return { steps, workouts, total: steps + workouts }
 }

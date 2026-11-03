@@ -163,7 +163,7 @@ function Today({ date, today, setDate }: { date: string; today: string; setDate:
           <span className="row-main">
             <span className="row-label">Steps</span>
             <span className="row-sub">
-              {day.steps?.source === 'shortcut' ? 'From Apple Fitness' : steps ? 'Entered by you' : 'Not logged yet'} · ≈ {fmt(r0(stepCalories(steps, kg)))} cal
+              {day.steps?.source === 'shortcut' ? 'From Apple Fitness' : steps ? 'Entered by you' : 'Not logged yet'} · ≈ {fmt(r0(stepCalories(steps, kg, profile?.heightCm)))} cal
             </span>
           </span>
           <span className="row-value">{fmt(steps)}</span>
