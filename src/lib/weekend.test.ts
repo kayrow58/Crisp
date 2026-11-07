@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { weekendKey, zoneOf, zonesFor } from './weekend'
 
 describe('weekend mode', () => {
-  it('keys a weekend by its Saturday', () => {
-    expect(weekendKey('2026-10-31')).toBe('2026-10-31') // Sat
-    expect(weekendKey('2026-11-01')).toBe('2026-10-31') // Sun
-    expect(weekendKey('2026-10-30')).toBeNull() // Fri
+  it('runs Friday–Sunday, keyed by the Friday', () => {
+    expect(weekendKey('2026-10-30')).toBe('2026-10-30') // Fri
+    expect(weekendKey('2026-10-31')).toBe('2026-10-30') // Sat
+    expect(weekendKey('2026-11-01')).toBe('2026-10-30') // Sun
+    expect(weekendKey('2026-10-29')).toBeNull() // Thu
+    expect(weekendKey('2026-11-02')).toBeNull() // Mon
   })
   it('splits the bar into goal → orange → red (200 from maintenance) → over', () => {
     const z = zonesFor(1700, 2400)!

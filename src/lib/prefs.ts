@@ -15,7 +15,7 @@ export interface Prefs {
   shortcutConnected: boolean
   /** the 'stop the microphone asking' tip was seen */
   micTipDone: boolean
-  /** Weekend mode: Saturday date of the weekend it's on for / the weekend we already asked about */
+  /** Weekend mode: Friday date of the weekend it's on for / the weekend we already asked about */
   weekendOn: string
   weekendAsked: string
   /** day the 'almost at maintenance' heads-up was shown */

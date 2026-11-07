@@ -7,11 +7,12 @@ import type { Profile } from '../../shared/types'
 /** How close to maintenance (cal) the red zone and heads-up start. */
 export const RED_MARGIN = 200
 
-/** Saturday's date for a Saturday or Sunday, otherwise null. */
+/** The weekend runs Friday–Sunday and is keyed by its Friday's date; other days → null. */
 export function weekendKey(date: string): string | null {
   const d = weekday(date)
-  if (d === 6) return date
-  if (d === 0) return addDays(date, -1)
+  if (d === 5) return date
+  if (d === 6) return addDays(date, -1)
+  if (d === 0) return addDays(date, -2)
   return null
 }
 
