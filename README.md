@@ -43,6 +43,7 @@ You only do this once. Everything happens in your browser.
 | Key | Value |
 |---|---|
 | `ADMIN_EMAILS` | Your email (the one you'll sign up with) |
+| `OWNER_EMAIL` | Optional. Who gets the "New Crisp sign-up" notification. Defaults to the first email in `ADMIN_EMAILS`. |
 | `INVITE_CODE` | The code friends type to sign up, e.g. `CRISP-2026` (you can change it later in Admin) |
 | `SESSION_SECRET` | A long random string (Claude gave you one) — keeps sign-ins secure |
 | `PASSKEY_RP_ID` | Your domain, e.g. `crisp-kay.netlify.app` (no `https://`) |

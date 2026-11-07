@@ -5,6 +5,7 @@ import { HttpError, body, env, handler, json, randomId, route } from '../lib/htt
 import { issueToken, isAdmin, requireSession } from '../lib/session'
 import { getProfile, listAll, saveProfile, stores } from '../lib/stores'
 import { recordEvent } from '../lib/events'
+import { notifyOwnerOfSignup } from '../lib/push'
 import { newProfile } from '../../shared/types'
 
 export const config: Config = { path: '/api/auth/*' }
@@ -52,6 +53,7 @@ export default handler(async (req, url) => {
     profile.fitnessCode = await ensureFitnessCode(user.id)
     await saveProfile(profile)
     await recordEvent(user.id, 'signed_up')
+    await notifyOwnerOfSignup(user.id, firstName)
     return json({ token: issueToken(user.id, email), profile, isAdmin: isAdmin(email) })
   }
 
