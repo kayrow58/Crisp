@@ -62,10 +62,19 @@ export function SwipeRow({
 
   const openMenu = () => menu && showOverlay(<ActionMenu title={children} actions={menu} />)
 
+  // Any scrolling while the finger is down means it wasn't a tap (iOS scrolls before we see much movement).
+  const onScroll = () => {
+    moved.current = true
+    if (hold.current) clearTimeout(hold.current)
+  }
+  const stopWatching = () => document.removeEventListener('scroll', onScroll, true)
+
   const onDown = (e: React.PointerEvent) => {
     start.current = { x: e.clientX, y: e.clientY }
     axis.current = null
     moved.current = false
+    stopWatching()
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true })
     width.current = (e.currentTarget as HTMLElement).offsetWidth
     if (menu) hold.current = setTimeout(() => {
       moved.current = true
@@ -80,6 +89,7 @@ export function SwipeRow({
     const ddy = e.clientY - start.current.y
     if (!axis.current && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) {
       axis.current = Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y'
+      moved.current = true // a scroll or a swipe — not a tap
       if (hold.current) clearTimeout(hold.current)
       if (axis.current === 'x') (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     }
@@ -91,8 +101,18 @@ export function SwipeRow({
       setDx(Math.max(limitLeft, Math.min(limitRight, ddx)))
     }
   }
+  /** The browser took the gesture over (usually to scroll): never treat that as a tap. */
+  const onCancel = () => {
+    if (hold.current) clearTimeout(hold.current)
+    stopWatching()
+    start.current = null
+    setDragging(false)
+    if (axis.current !== 'x') setDx(0)
+    else onUp()
+  }
   const onUp = () => {
     if (hold.current) clearTimeout(hold.current)
+    stopWatching()
     const wasTap = !moved.current && start.current
     start.current = null
     setDragging(false)
@@ -142,7 +162,7 @@ export function SwipeRow({
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
-        onPointerCancel={onUp}
+        onPointerCancel={onCancel}
         onContextMenu={(e) => {
           e.preventDefault()
           openMenu()
