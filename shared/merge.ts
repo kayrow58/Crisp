@@ -68,5 +68,6 @@ export function mergeProfile(local: Profile, remote: Profile | null): Profile {
   for (const k of SERVER_FIELDS) (out as unknown as Record<string, unknown>)[k] = remote[k]
   out.bestStreak = Math.max(local.bestStreak ?? 0, remote.bestStreak ?? 0)
   out.milestonesHit = [...new Set([...(remote.milestonesHit ?? []), ...(local.milestonesHit ?? [])])]
+  if (remote.seenNews || local.seenNews) out.seenNews = [...new Set([...(remote.seenNews ?? []), ...(local.seenNews ?? [])])]
   return out
 }

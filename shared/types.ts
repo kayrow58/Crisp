@@ -38,6 +38,8 @@ export interface Profile {
   goalWeightKg?: number
   /** chosen weekly pace in lb/week (lose or gain); missing = default 1 lose / 0.5 gain */
   paceLbPerWeek?: number
+  /** "What's new" notes this person closed (never shown again) */
+  seenNews?: string[]
   activityMode: ActivityMode
   activityLevel: ActivityLevel
   targets?: Targets

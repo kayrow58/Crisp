@@ -15,6 +15,7 @@ import { streak } from '../../shared/calc'
 import { addDays, weekday } from '../../shared/dates'
 import { openLog } from './Log'
 import { WeekendPrompt } from '../components/Weekend'
+import { WhatsNew } from '../components/WhatsNew'
 import { setWeekend, shouldAskWeekend, useWeekendOn, weekendEligible, weekendKey, zonesFor } from '../lib/weekend'
 import { MealScreen } from './Meal'
 import { enableNotifications, pushSupported } from '../lib/push'
@@ -86,6 +87,8 @@ export function Home() {
           </button>
         </Card>
       )}
+
+      <WhatsNew />
 
       <StatCard
         totals={stats.totals}

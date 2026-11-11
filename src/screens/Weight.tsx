@@ -1,6 +1,7 @@
 // Weight: latest, graph with ranges, estimated change, entries, milestones (spec §4.6–4.7).
 import { useMemo, useState } from 'react'
-import { Info, Scales } from '@phosphor-icons/react'
+import { CaretRight, ChartBar, Info, Scales } from '@phosphor-icons/react'
+import { Balance } from './Balance'
 import { TabScreen } from '../components/Screen'
 import { Sheet } from '../components/Sheet'
 import { SwipeRow } from '../components/SwipeRow'
@@ -9,7 +10,7 @@ import { Confetti } from '../components/Confetti'
 import { Button, Card, EmptyState, Field, Note, Segmented } from '../components/ui'
 import { dayStats, useToday } from '../lib/derived'
 import { getDay, getState, list, refresh, setDoc, track, updateProfile, useList, useStore } from '../lib/store'
-import { closeSheet, openSheet, showOverlay, toast } from '../lib/ui'
+import { closeSheet, openSheet, pushScreen, showOverlay, toast } from '../lib/ui'
 import { InfoSheet } from '../components/InfoSheet'
 import { usePrefs } from '../lib/prefs'
 import { dayLabel, fmt, fromDisplayWeight, newId, showWeight, toDisplayWeight, weightUnit } from '../lib/format'
@@ -60,6 +61,17 @@ export function Weight() {
       )}
 
       <EstimateCard today={today} />
+
+      <Card>
+        <button className="bal-link pressable" onClick={() => pushScreen(<Balance />)}>
+          <ChartBar size={24} weight="duotone" color="var(--cyan)" aria-hidden />
+          <span className="row-main">
+            <span className="row-label">Balance</span>
+            <span className="muted small">See where your weight is coming from — by week, month and year.</span>
+          </span>
+          <CaretRight size={18} aria-hidden className="muted" />
+        </button>
+      </Card>
 
       {sorted.length > 0 && (
         <>

@@ -3430,3 +3430,58 @@ select.input {
   padding: var(--s2) var(--s3);
   color: var(--cyan-ink);
 }
+
+/* ---------- Balance ---------- */
+.bal-good { color: var(--cyan); }
+.bal-bad { color: var(--zone-orange); }
+.bal-worse { color: var(--zone-red); }
+.bal-card { display: grid; gap: 4px; }
+.bal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.bal-nav b { font-size: var(--t-headline, 17px); }
+.bal-nav .icon-btn:disabled { opacity: 0.25; }
+.bal-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bal-n { font-size: 38px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.bal-axis { font-size: 10px; margin-top: 8px; }
+.bal-chart { position: relative; display: flex; gap: 6px; height: 200px; margin-top: 2px; }
+.bal-chart--month { gap: 12px; }
+.bal-chart--year { gap: 3px; }
+.bal-zero { position: absolute; left: 0; right: 0; top: 75px; height: 1px; background: #3a3a3c; }
+.bal-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; background: none; border: 0; padding: 0; color: inherit; }
+.bal-slot { position: relative; height: 150px; }
+.bal-bar { position: absolute; left: 0; right: 0; border-radius: 6px; }
+.bal-bar.down { top: 50%; }
+.bal-bar.up { bottom: 50%; }
+.bal-bar--u { background: linear-gradient(180deg, var(--cyan), #00a3b8); box-shadow: 0 0 10px color-mix(in srgb, var(--cyan) 35%, transparent); }
+.bal-bar--o.up, .bal-bar--o { background: linear-gradient(0deg, var(--zone-orange), #ffb04d); box-shadow: 0 0 10px color-mix(in srgb, var(--zone-orange) 35%, transparent); }
+.bal-bar--o.down { background: linear-gradient(180deg, var(--zone-orange), #c46a00); }
+.bal-bar--r { background: linear-gradient(0deg, var(--zone-red), #ff6b6b); box-shadow: 0 0 12px color-mix(in srgb, var(--zone-red) 40%, transparent); }
+.bal-bar--p { background: repeating-linear-gradient(-45deg, #3a3a3c 0 4px, #2a2a2c 4px 8px); }
+.bal-bar--g { top: calc(50% - 3px); height: 6px; background: #3a3a3c; }
+.bal-val { font-size: 10px; font-weight: 700; text-align: center; white-space: nowrap; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.bal-chart--year .bal-val { font-size: 9px; }
+.bal-lbl { font-size: 11px; color: var(--text-2); text-align: center; margin-top: 2px; white-space: nowrap; }
+.bal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--text-2); margin-top: 6px; }
+.bal-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.bal-legend i.u { background: var(--cyan); }
+.bal-legend i.o { background: var(--zone-orange); }
+.bal-legend i.r { background: var(--zone-red); }
+.bal-legend i.g { background: #3a3a3c; }
+.bal-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+.bal-cmp > div { background: var(--raised); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; }
+.bal-cmp small { color: var(--text-2); font-size: 11px; }
+.bal-cmp b { font-size: 18px; }
+.bal-row { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--divider); font-size: var(--t-subhead); }
+.bal-row:first-child { border-top: none; }
+.bal-catch { border-color: color-mix(in srgb, var(--zone-orange) 40%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--zone-orange) 8%, transparent), var(--card)); }
+.bal-catch h3 { font-size: var(--t-subhead); margin-bottom: 4px; }
+.bal-catch p, .bal-ahead p { color: var(--text-2); font-size: var(--t-subhead); line-height: 1.4; }
+.bal-catch b, .bal-ahead b { color: var(--text); }
+.bal-ahead { border-color: color-mix(in srgb, var(--cyan) 35%, transparent); }
+.bal-link { display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 0; }
+.bal-link .row-main { flex: 1; }
+.news { position: relative; border-color: color-mix(in srgb, var(--cyan) 45%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--pink) 10%, var(--card)), color-mix(in srgb, var(--cyan) 8%, var(--card))); padding-right: 44px; }
+.news-tag { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan); }
+.news h3 { font-size: var(--t-headline, 17px); margin: 2px 0 4px; }
+.news p { color: var(--text-2); font-size: var(--t-subhead); line-height: 1.4; }
+.news-x { position: absolute; top: 8px; right: 8px; }
+.news-go { margin-top: var(--s2); }
