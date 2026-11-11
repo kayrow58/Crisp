@@ -74,6 +74,7 @@ export async function askClaude(queries: string[]): Promise<{ foods: AiFoodResul
   const list = queries.map((q, i) => `${i + 1}. ${q}`).join('\n')
   const messages: { role: 'user' | 'assistant'; content: unknown }[] = [{ role: 'user', content: `Foods:\n${list}` }]
   let text = ''
+  let stop = ''
   for (let turn = 0; turn < 5; turn++) {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 120_000)
@@ -83,7 +84,7 @@ export async function askClaude(queries: string[]): Promise<{ foods: AiFoodResul
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: AI_MODEL,
-        max_tokens: 3000,
+        max_tokens: 6000,
         system: SYSTEM,
         messages,
         tools: [
@@ -103,10 +104,11 @@ export async function askClaude(queries: string[]): Promise<{ foods: AiFoodResul
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('')
+    stop = data.stop_reason
     if (data.stop_reason !== 'pause_turn') break
     messages.push({ role: 'assistant', content: data.content }) // long search: let it continue
   }
-  return parseAnswer(text, queries)
+  return parseOrRepair(text, stop, MEAL_SHAPE, queries)
 }
 
 const num = (v: unknown) => {
@@ -139,21 +141,91 @@ function cleanItems(list: Partial<AiFoodItem>[] | undefined): AiFoodItem[] {
 }
 
 /** Pull the JSON answer out of Claude's reply: one result per food asked, in order. */
-export function parseAnswer(text: string, queries?: string[]): { foods: AiFoodResult[]; note?: string } {
-  const fenced = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].pop()?.[1]
-  const raw = fenced ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
-  let parsed: { foods?: { query?: string; items?: Partial<AiFoodItem>[] }[]; items?: Partial<AiFoodItem>[]; note?: string }
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    throw new Error('Could not read the AI answer')
+/**
+ * Pull the JSON answer out of Claude's reply. Tries, in order: fenced code blocks (last first), then every
+ * balanced {...} object in the text (last first). Prefers an object that has "foods" or "items".
+ */
+export function extractJson(text: string): Record<string, unknown> | null {
+  const tries: string[] = []
+  for (const m of [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].reverse()) tries.push(m[1])
+  // an opened fence that never closed (cut off, or the closing fence got lost)
+  const open = text.lastIndexOf('```json')
+  if (open >= 0 && text.indexOf('```', open + 7) < 0) tries.push(text.slice(open + 7))
+  // balanced objects, scanning braces outside of strings
+  const objs: string[] = []
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '{') continue
+    let depth = 0
+    let inStr = false
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j]
+      if (inStr) {
+        if (ch === '\\') j++
+        else if (ch === '"') inStr = false
+      } else if (ch === '"') inStr = true
+      else if (ch === '{') depth++
+      else if (ch === '}' && --depth === 0) {
+        objs.push(text.slice(i, j + 1))
+        i = j
+        break
+      }
+    }
   }
+  tries.push(...objs.reverse())
+  let fallback: Record<string, unknown> | null = null
+  for (const t of tries) {
+    const cleaned = t.trim().replace(/,\s*([}\]])/g, '$1') // tolerate trailing commas
+    try {
+      const v = JSON.parse(cleaned)
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        if ('foods' in v || 'items' in v || 'matches' in v || 'meal' in v) return v
+        fallback ??= v
+      }
+    } catch {
+      /* try the next one */
+    }
+  }
+  return fallback
+}
+
+export function parseAnswer(text: string, queries?: string[]): { foods: AiFoodResult[]; note?: string } {
+  const parsed = extractJson(text) as { foods?: { query?: string; items?: Partial<AiFoodItem>[] }[]; items?: Partial<AiFoodItem>[]; note?: string } | null
+  if (!parsed) throw new Error('Could not read the AI answer')
   const got = parsed.foods ?? (parsed.items ? [{ query: queries?.[0], items: parsed.items }] : [])
   const foods = queries
     ? queries.map((q, i) => ({ query: q, items: cleanItems(got[i]?.items) }))
     : got.slice(0, 12).map((g) => ({ query: String(g.query ?? '').trim().slice(0, 120) || 'Food', items: cleanItems(g.items) })).filter((f) => f.query)
   return { foods, note: parsed.note ? String(parsed.note).slice(0, 240) : undefined }
 }
+
+/**
+ * When the reply isn't readable JSON (prose, cut off, odd formatting): log what came back, then ask Claude —
+ * cheaply, no web search — to turn its own answer into the JSON. Throws only if that fails too.
+ */
+async function parseOrRepair(text: string, stop: string, shape: string, queries?: string[]) {
+  try {
+    return parseAnswer(text, queries)
+  } catch {
+    console.error(`AI answer unreadable (stop=${stop}, ${text.length} chars). Start: ${text.slice(0, 700)} … End: ${text.slice(-300)}`)
+  }
+  const key = env('ANTHROPIC_API_KEY')!
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      max_tokens: 4000,
+      system: `Turn the food-nutrition answer you're given into ONLY this JSON (no other text, no code fence):\n${shape}\nKeep every food and number it gives. If a number is missing, use your best realistic estimate and set "estimate": true.`,
+      messages: [{ role: 'user', content: text.slice(-12000) || 'No answer was given.' }],
+    }),
+  })
+  if (!res.ok) throw new Error(`anthropic repair ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const data = (await res.json()) as { content: Block[] }
+  const fixed = data.content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
+  return parseAnswer(fixed, queries)
+}
+
+const MEAL_SHAPE = '{"foods":[{"query":"<the food as they said it>","items":[{"name":"","brand":"","serving":"","servingGrams":null,"cal":0,"p":0,"c":0,"f":0,"estimate":false,"sourceUrl":"","sourceTitle":""}]}],"note":""}'
 
 // ---------- step 2: does Crisp's database already have it? (no web search, ~0.05¢) ----------
 const MATCH_SYSTEM = `You match foods a person ate to foods already in a calorie app's database.
@@ -190,13 +262,8 @@ export async function matchWithDatabase(queries: string[], candidates: AiCandida
 
 /** Read {"matches":[...]} and only accept ids that were actually offered for that food. */
 export function parseMatches(text: string, candidates: AiCandidate[][]): (string | null)[] {
-  let ids: unknown[] = []
-  try {
-    const raw = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
-    ids = (JSON.parse(raw) as { matches?: unknown[] }).matches ?? []
-  } catch {
-    /* treat as no matches */
-  }
+  const v = extractJson(text) as { matches?: unknown[] } | null
+  const ids: unknown[] = Array.isArray(v?.matches) ? v.matches : []
   return candidates.map((c, i) => {
     const id = ids[i]
     return typeof id === 'string' && c.some((x) => x.id === id) ? id : null
@@ -263,14 +330,10 @@ export async function understandMeal(text: string, pool: AiCandidate[]): Promise
 
 /** Read Claude's meal breakdown; only accept database ids/units that were actually offered. */
 export function parseMeal(text: string, pool: AiCandidate[]): MealFood[] {
-  let foods: { said?: unknown; match?: unknown; unit?: unknown; qty?: unknown; search?: unknown }[] = []
-  try {
-    const fenced = [...text.matchAll(/```json\s*([\s\S]*?)```/g)].pop()?.[1]
-    const raw = fenced ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)
-    foods = (JSON.parse(raw) as { foods?: typeof foods }).foods ?? []
-  } catch {
-    throw new Error('Could not read the AI answer')
-  }
+  type Raw = { said?: unknown; match?: unknown; unit?: unknown; qty?: unknown; search?: unknown }
+  const v = extractJson(text) as { foods?: Raw[] } | null
+  if (!v || !Array.isArray(v.foods)) throw new Error('Could not read the AI answer')
+  const foods: Raw[] = v.foods
   const out: MealFood[] = []
   for (const f of foods.slice(0, 12)) {
     const said = String(f.said ?? '').trim().slice(0, 120)
@@ -310,6 +373,7 @@ export async function askClaudeMeal(text: string): Promise<{ foods: AiFoodResult
   if (!key) throw new HttpError(503, 'ai_not_setup', 'AI lookup is not set up yet (missing ANTHROPIC_API_KEY).')
   const messages: { role: 'user' | 'assistant'; content: unknown }[] = [{ role: 'user', content: `What they ate: ${text}` }]
   let out = ''
+  let stop = ''
   for (let turn = 0; turn < 5; turn++) {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 120_000)
@@ -319,7 +383,7 @@ export async function askClaudeMeal(text: string): Promise<{ foods: AiFoodResult
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: AI_MODEL,
-        max_tokens: 3000,
+        max_tokens: 6000,
         system: WEB_MEAL_SYSTEM,
         messages,
         tools: [{ type: 'web_search_20260318', name: 'web_search', max_uses: 3, allowed_callers: ['direct'], user_location: { type: 'approximate', country: 'US' } }],
@@ -328,10 +392,11 @@ export async function askClaudeMeal(text: string): Promise<{ foods: AiFoodResult
     if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`)
     const data = (await res.json()) as { content: Block[]; stop_reason: string }
     out += data.content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
+    stop = data.stop_reason
     if (data.stop_reason !== 'pause_turn') break
     messages.push({ role: 'assistant', content: data.content })
   }
-  return parseAnswer(out)
+  return parseOrRepair(out, stop, MEAL_SHAPE)
 }
 
 // ---------- which mode the AI runs in (Admin switch) ----------

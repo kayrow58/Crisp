@@ -136,6 +136,15 @@ check(r.status === 404, 'unknown AI lookups are refused')
   check(est.foods[0].items[0].estimate === false && !est.foods[0].items[0].sourceUrl, 'generic foods without a link stay "typical values", not estimates')
   const free = aiLib.parseAnswer('```json\n{"foods":[{"query":"2 eggs","items":[{"name":"Eggs, scrambled","serving":"2 large eggs","cal":182,"p":12,"c":2,"f":14}]},{"query":"grilled Chick-fil-A sandwich","items":[{"name":"Grilled Chicken Sandwich","brand":"Chick-fil-A","serving":"1 sandwich","cal":390,"p":28,"c":44,"f":12,"sourceUrl":"https://www.chick-fil-a.com/x"}]}],"note":"ok"}\n```')
   check(free.foods.length === 2 && free.foods[0].query === '2 eggs' && free.foods[1].items[0].cal === 390, 'web-only mode reads a whole meal without a food list')
+  // messy replies that used to fail with "Could not read the AI answer"
+  const messyMeal = '{"foods":[{"query":"burrito","items":[{"name":"Burrito","serving":"1","cal":1000,"p":50,"c":100,"f":40,}]}],"note":"Assumed {regular} size"}'
+  const messy = [
+    `I'll use {standard} sizes for the sides.\n\n\`\`\`json\n${messyMeal}\n\`\`\``, // braces in prose before the fence
+    `Here's the breakdown:\n${messyMeal}\nLet me know if {anything} is off.`, // no fence, braces after
+    `Results:\n\`\`\`json\n${messyMeal}`, // fence never closed
+    `\`\`\`\n${messyMeal}\n\`\`\``, // plain fence, no "json"
+  ]
+  check(messy.every((t) => aiLib.parseAnswer(t).foods[0]?.items[0]?.cal === 1000), 'reads JSON from messy AI replies (prose braces, missing fence, trailing comma)')
   check((await aiLib.aiMode()) === 'web', 'AI starts in web-only mode')
   r = await call(admin, '/api/admin/ai-mode', { tok: tKay, body: { mode: 'database' } })
   check(r.status === 200 && (await aiLib.aiMode()) === 'database', 'admin can switch AI to database-first')

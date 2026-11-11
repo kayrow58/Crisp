@@ -48,7 +48,14 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     })
   } catch {
-    throw new ApiError(0, 'offline', "You're offline. Try again when you have a connection.")
+    // fetch only says "it didn't get through" — only blame the connection when the phone says it's offline
+    throw new ApiError(
+      0,
+      'offline',
+      typeof navigator !== 'undefined' && navigator.onLine === false
+        ? "You're offline. Try again when you have a connection."
+        : "Couldn't reach Crisp's server just now. Please try again.",
+    )
   }
   const text = await res.text()
   if (res.ok && !(res.headers.get('content-type') ?? '').includes('json')) {
